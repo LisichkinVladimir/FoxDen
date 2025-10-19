@@ -1,5 +1,3 @@
-#include <WiFi.h>
-#include <esp_wifi.h>
 #include "web.h"
 #include "main.h"
 #include "pulse_led.h"
@@ -28,24 +26,61 @@ bool readMacAddress() {
 // Очередь импульсов
 QueueHandle_t pulseQueue = NULL;
 
+// Время последней записи в очередь
+SemaphoreHandle_t queue_mutex;
+volatile long last_queue_put = 0;
+
 // Процедура отправки данных через WiFi на REST сервер
 static void SenderTask(void *pvParameters) {
   #ifdef DEBUG_MODE  
   Serial.printf("Инициализация процесса отравки данных\n");
   #endif
-  Pulse* p;
+  Pulse p;
   while(1) {
-    portBASE_TYPE status = xQueueReceive(pulseQueue, p, PULSE_MAX_DELAY);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    // Получить время последного помещения данных в очередь
+    long last_queue_access = 0;
+    UBaseType_t queueSize = uxQueueMessagesWaiting(pulseQueue);
+    if (xSemaphoreTake(queue_mutex, PULSE_MAX_DELAY) == pdTRUE) {
+      last_queue_access = last_queue_put;
+      xSemaphoreGive(queue_mutex);
+    }
+    if (queueSize >= MAX_PULSE_SIZE_WHEN_SEND || (queueSize > 0 && last_queue_access > 0 && millis() - last_queue_access > MAX_PULSE_TIME_WHEN_SEND)) {      
+      if (!is_read_mac)
+        readMacAddress();
+      // TODO Инициализация Wifi
+      while (xQueueReceive(pulseQueue, &p, PULSE_MAX_DELAY) == pdTRUE) {
+        #ifdef DEBUG_MODE  
+        Serial.printf("Данные в очереди для pin %d отправляются на Web сервер\n", p.pin);
+        #endif
+        // TODO отправить данные через интернет
+      }
+    }
   }
 }
 
 void initWeb(void) {
-  // TODO
-  return;
-  if (pulseQueue!= NULL) {
-    pulseQueue = xQueueCreate(MAX_PULSE_SIZE, sizeof(Pulse));  
-    // Запуск задачи с динамическим выделением памяти в куче, с размером стека 4кБ, приоритетом 5
-    xTaskCreate(SenderTask, "SendRask", 4096, NULL, 5, NULL);
+  if (pulseQueue == NULL) {
+    // Создание очереди
+    pulseQueue = xQueueCreate(MAX_PULSE_SIZE, sizeof(Pulse));
+    #ifdef DEBUG_MODE  
+    if (pulseQueue == NULL)
+      Serial.printf("ERROR. Ошибка создания очереди\n");
+    else
+      Serial.printf("Очередь создана\n");
+    #endif
+
+    // Создание семафора для переменной когда последний раз была запись в очередь
+    queue_mutex = xSemaphoreCreateBinary();
+
+    // Запуск задачи с динамическим выделением памяти в куче, с размером стека 4кБ, приоритетом 1
+    BaseType_t status = xTaskCreate(SenderTask, "SendTask", 4096, NULL, 1, NULL);
+    #ifdef DEBUG_MODE  
+    if (status != pdPASS)
+      Serial.printf("ERROR. Ошибка создания задания %d\n", status);
+    else
+      Serial.printf("Задание на оправку данных создано\n");
+    #endif
   }
 }
 
@@ -54,16 +89,22 @@ void sendData2Web(int pin) {
   // Включим светодиод
   turnOnLed();
   #ifdef DEBUG_MODE  
-  Serial.printf("запись в очередь +10 литров pin %d\n", pin);
+  Serial.printf("Запись в очередь +10 литров pin %d\n", pin);
   #endif
-  // TODO
-  /*Pulse* p = new Pulse;
-  p->time_millis = millis();
-  p->pin = pin;
+
+  Pulse p;
+  p.time_millis = millis();
+  p.pin = pin;
   BaseType_t status = xQueueSendToBack(pulseQueue, &p, PULSE_MAX_DELAY);
-  if (status != pdPASS) {
+  if (status == pdPASS) {
+    if (xSemaphoreTake(queue_mutex, PULSE_MAX_DELAY) == pdTRUE) {
+      last_queue_put = millis();
+      xSemaphoreGive(queue_mutex);
+    }
+  }
+  else {
     #ifdef DEBUG_MODE  
-    Serial.printf("ошибка записи в очередь %d pin %d\n", status, pin);
+    Serial.printf("ERROR. Ошибка записи в очередь %d pin %d\n", status, pin);
     #endif
-  }*/
+  }
 }
