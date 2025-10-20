@@ -1,8 +1,9 @@
 #include <inttypes.h>
-#include <main.h>
-#include <web.h>
-#include <Bounce2.h>
-#include <pulse_led.h>
+
+#include "main.h"
+#include "buffer.h"
+#include "Bounce2.h"
+#include "pulse_led.h"
 
 // Пины к которым подключены устройства
 static uint8_t GPIOPin[PIN_COUNT] = {0, 1};
@@ -17,8 +18,8 @@ void setup() {
   #endif
   // Инициализируем светодиод
   initLed();
-  // Инициализируем структуры для работы с Web/WiFi
-  initWeb();
+  // Инициализируем буферы
+  initBuffer();
   // Инициализируем пины
   for(int i = 0; i < PIN_COUNT; i++) {
     // Каждый вывод имеет нагрузочный резистор (по умолчанию отключен) 20-50 кОм и может пропускать до 40 мА. - включается командой INPUT_PULLUP  
@@ -44,7 +45,7 @@ void loop() {
       #endif
       // Если значение датчика стало ЗАМКНУТО
       if (val == LOW) 
-        sendData2Web(GPIOPin[i]);
+        putData2Buffer(GPIOPin[i]);
     }
   }
   // Выключим светодиод после задержки, если он был включен
