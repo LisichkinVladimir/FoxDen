@@ -17,17 +17,15 @@ bool readMacAddress() {
                 MacAddress[0], MacAddress[1], MacAddress[2],
                 MacAddress[3], MacAddress[4], MacAddress[5]);
   #endif
-  WiFi.mode(WIFI_OFF);
   isReadMac = result;
   return result;
 }
 
 unsigned long connectTime = 0;
 unsigned long etime = 0;
-unsigned long dottime = 0;
 bool isConnect = false;
 
-void wifiDisconnect(void) {
+void Disconnect(void) {
   if (WiFi.isConnected()) {
     #ifdef DEBUG_MODE  
     Serial.println("WiFi Disconnecting");
@@ -43,30 +41,180 @@ void wifiDisconnect(void) {
   WiFi.mode(WIFI_OFF);  
 }
 
-void wifiStartConnecting(void) {
-  wifiDisconnect();
+void StartConnecting(void) {
+  Disconnect();
   #ifdef DEBUG_MODE  
-  Serial.printf("\nПопытка подключения к Wi-Fi сети в течении %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
+  Serial.printf("Попытка подключения к Wi-Fi сети в течении %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
   #endif
 
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(false);
   connectTime = millis();
-  dottime = millis();
+  #ifdef DEBUG_MODE  
+  Serial.printf("Запуск WiFi.begin\n");
+  #endif
+  delay(2000);
+  #ifdef SHOW_NETWORKS
+  int n = WiFi.scanNetworks();
+  Serial.println("scan done");
+  if (n == 0) {
+      Serial.println("no networks found");
+  } else {
+    Serial.printf("Networks found %d\n", n);
+    for (int i = 0; i < n; ++i) {
+      Serial.printf("wifi(%d): %s\n", i, WiFi.SSID(i));
+    }
+  }
+  #endif
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+  #ifdef DEBUG_MODE  
+  Serial.printf("Ожидание подключения\n");
+  #endif
 } 
+
+const char* getStatus2Sting(wl_status_t status) {
+  switch (status) {
+    case WL_NO_SHIELD: return "WL_NO_SHIELD";
+    case WL_IDLE_STATUS: return "WL_IDLE_STATUS";
+    case WL_NO_SSID_AVAIL: return "WL_NO_SSID_AVAIL";
+    case WL_SCAN_COMPLETED: return "WL_SCAN_COMPLETED";
+    case WL_CONNECTED: return "WL_CONNECTED";
+    case WL_CONNECT_FAILED: return "WL_CONNECT_FAILED";
+    case WL_CONNECTION_LOST: return "WL_CONNECTION_LOST";
+    case WL_DISCONNECTED: return "WL_DISCONNECTED";
+  }
+}
+
+void printStatus(void) {
+  Serial.println("[WiFi] status:");
+  switch(WiFi.status()) {
+      case WL_NO_SSID_AVAIL:
+        Serial.println("[WiFi] SSID not found");
+        break;
+      case WL_CONNECT_FAILED:
+        Serial.println("[WiFi] Failed - WiFi not connected! Reason: WL_CONNECT_FAILED");
+        break;
+      case WL_CONNECTION_LOST:
+        Serial.println("[WiFi] Connection was lost");
+        break;
+      case WL_SCAN_COMPLETED:
+        Serial.println("[WiFi] Scan is completed");
+        break;
+      case WL_DISCONNECTED:
+        Serial.println("[WiFi] WiFi is disconnected");
+        break;
+      case WL_CONNECTED:
+        Serial.print("[WiFi] WiFi is connected. IP address: ");
+        Serial.println(WiFi.localIP());
+        break;
+      default:
+        Serial.print("[WiFi] WiFi Status: ");
+        Serial.println(WiFi.status());
+        break;
+  }
+}
+
+void waitConnecting() {
+  // Инициализация подключения по WiFi
+  StartConnecting();
+  #ifdef DEBUG_MODE
+  int step = 1; 
+  #endif
+  do {
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    wl_status_t status = WiFi.status();
+    if (status == WL_CONNECTED) {
+      etime = millis() - connectTime;
+      #ifdef DEBUG_MODE
+      Serial.print("WiFi is connected with IP address: ");
+      Serial.println(WiFi.localIP());
+      Serial.printf("Подключено после %u ms\n", etime);
+      #endif
+      isConnect = true;
+      break;
+    }
+    #ifdef DEBUG_MODE
+    Serial.printf("WiFi Не подключено %d статус(%d) %s\n", step++, status, getStatus2Sting(status)); 
+    #endif
+  } while (millis() - connectTime <= WIFI_TIMEOUT);
+  if (!isConnect && millis() - connectTime > WIFI_TIMEOUT) {
+      #ifdef DEBUG_MODE
+      Serial.printf("Не подключено после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
+      printStatus();
+      #endif
+  }
+}
+
+unsigned long synchronizationTime = 0;
+bool isSynchronized = false;
+bool sntpFinish = false;
+
+void sntp_notification(struct timeval *tv)
+{
+  struct tm timeinfo;
+  char strftime_buf[20];
+  localtime_r(&tv->tv_sec, &timeinfo);
+  if (timeinfo.tm_year < (1970 - 1900)) {
+    isSynchronized = false;
+    #ifdef DEBUG_MODE  
+    Serial.printf("Синхронизация времени не удалась!\n");
+    #endif
+  } else {
+    // Post time event
+    // eventLoopPost(RE_TIME_EVENTS, RE_TIME_SNTP_SYNC_OK, nullptr, 0, portMAX_DELAY);
+    isSynchronized = true;
+    synchronizationTime = millis();
+    #ifdef DEBUG_MODE  
+    strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &timeinfo);
+    Serial.printf("Синхронизация времени завершена, текущее время: %s\n", strftime_buf);
+    #endif
+  };
+  sntpFinish = true;
+}
+
+// SNTP-синхронизация времени
+void setDateTime() {
+  #ifdef DEBUG_MODE  
+  Serial.printf("Запуск синхронизации времени\n");
+  #endif
+  setenv("TZ", CURRENT_TZ, 1);
+  tzset();
+  sntpFinish = false;
+  // Запускаем синхронизацию времени по SNTP протоколу
+  sntp_setoperatingmode(SNTP_OPMODE_POLL);
+  sntp_set_time_sync_notification_cb(sntp_notification);
+  sntp_setservername(0, "pool.ntp.org");
+  sntp_setservername(1, "time.nist.gov");
+  sntp_setservername(2, "time.google.com");
+  sntp_setservername(3, "time.windows.com");
+  sntp_init();
+  while (!sntpFinish) {
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    #ifdef DEBUG_MODE  
+    Serial.printf("Ожидание синхронихации времени\n");
+    #endif
+  }
+}
 
 bool initWeb() {
   if (!isReadMac)
     readMacAddress();
-  // TODO инициализация подключения по WiFi
-  // TODO получение текущего времени через SNTP
-  return true;
+  waitConnecting();
+  if (isConnect)
+    if (!isSynchronized)
+      setDateTime();
+  return isReadMac && isConnect && isSynchronized;
 }
 
 void sentData2Web(std::vector<Pulse> pulseArray) {
+  if (!isConnect)
+    return;
   #ifdef DEBUG_MODE  
   Serial.printf("Отправка в Web массива из %d данных\n", pulseArray.size());
   #endif
-  // TODO
+  HTTPClient http;
+  //http.begin(serverName.c_str());
+  // TODO send POST
+  // http.end();
 }

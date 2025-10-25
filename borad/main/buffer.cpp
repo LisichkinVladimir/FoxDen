@@ -3,6 +3,7 @@
 
 // Очередь импульсов
 QueueHandle_t pulseQueue = NULL;
+TaskHandle_t taskHandle = NULL;
 
 // Время последней записи в очередь
 SemaphoreHandle_t queueMutex;
@@ -25,21 +26,26 @@ static void SenderTask(void *pvParameters) {
     }
     if (queueSize >= MAX_PULSE_SIZE_WHEN_SEND || (queueSize > 0 && last_queue_access > 0 && millis() - last_queue_access > MAX_PULSE_TIME_WHEN_SEND)) {
       // Подключение к Wifi
-      if (!initWeb())
-        break;
-      // Самый простой и рекомендуемый способ создать динамический массив
-      std::vector<Pulse> pulseArray;
-      while (xQueueReceive(pulseQueue, &p, PULSE_MAX_DELAY) == pdTRUE) {
-        #ifdef DEBUG_MODE  
-        Serial.printf("Данные в очереди для pin %d отправляются на Web сервер\n", p.pin);
-        #endif
-        pulseArray.push_back(p);
+      if (initWeb())
+      {
+        // Самый простой и рекомендуемый способ создать динамический массив
+        std::vector<Pulse> pulseArray;
+        while (xQueueReceive(pulseQueue, &p, PULSE_MAX_DELAY) == pdTRUE) {
+          #ifdef DEBUG_MODE  
+          Serial.printf("Данные в очереди для pin %d отправляются на Web сервер\n", p.pin);
+          #endif
+          pulseArray.push_back(p);
+        }
+        // Отправить данные через интернет
+        if (pulseArray.size() > 0)
+          sentData2Web(pulseArray);
       }
-      // Отправить данные через интернет
-      if (pulseArray.size() > 0)
-        sentData2Web(pulseArray);
     }
   }
+  #ifdef DEBUG_MODE  
+  Serial.printf("Ошибочное завершение процесса работы с буфером данных\n");
+  #endif
+  vTaskDelete(taskHandle);
 }
 
 void initBuffer(void) {
@@ -57,7 +63,7 @@ void initBuffer(void) {
     queueMutex = xSemaphoreCreateBinary();
 
     // Запуск задачи с динамическим выделением памяти в куче, с размером стека 4кБ, приоритетом 1
-    BaseType_t status = xTaskCreate(SenderTask, "SendTask", 4096, NULL, 1, NULL);
+    BaseType_t status = xTaskCreate(SenderTask, "SendTask", 4096, NULL, 1, &taskHandle);
     #ifdef DEBUG_MODE  
     if (status != pdPASS)
       Serial.printf("ERROR. Ошибка создания задания %d\n", status);
