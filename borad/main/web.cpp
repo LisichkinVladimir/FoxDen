@@ -1,12 +1,8 @@
-#include <WiFi.h>
-#include <esp_wifi.h>
 #include "web.h"
-#include "main.h"
-#include "pulse_led.h"
 
 // MAC адрес устройства
 static uint8_t MacAddress[6] = {0};
-bool is_read_mac = false;
+bool isReadMac = false;
 
 bool readMacAddress() {
   WiFi.mode(WIFI_STA);
@@ -16,54 +12,61 @@ bool readMacAddress() {
   if (ret != ESP_OK)
     memset(MacAddress, 0, sizeof(MacAddress));
   #ifdef DEBUG_MODE  
-  Serial.print("ESP32 Board MAC Address: ");
+  Serial.print("ESP32 MAC Address: ");
   Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
                 MacAddress[0], MacAddress[1], MacAddress[2],
                 MacAddress[3], MacAddress[4], MacAddress[5]);
   #endif
   WiFi.mode(WIFI_OFF);
+  isReadMac = result;
   return result;
 }
 
-// Очередь импульсов
-QueueHandle_t pulseQueue = NULL;
+unsigned long connectTime = 0;
+unsigned long etime = 0;
+unsigned long dottime = 0;
+bool isConnect = false;
 
-// Процедура отправки данных через WiFi на REST сервер
-static void SenderTask(void *pvParameters) {
-  #ifdef DEBUG_MODE  
-  Serial.printf("Инициализация процесса отравки данных\n");
-  #endif
-  Pulse* p;
-  while(1) {
-    portBASE_TYPE status = xQueueReceive(pulseQueue, p, PULSE_MAX_DELAY);
-  }
-}
-
-void initWeb(void) {
-  // TODO
-  return;
-  if (pulseQueue!= NULL) {
-    pulseQueue = xQueueCreate(MAX_PULSE_SIZE, sizeof(Pulse));  
-    // Запуск задачи с динамическим выделением памяти в куче, с размером стека 4кБ, приоритетом 5
-    xTaskCreate(SenderTask, "SendRask", 4096, NULL, 5, NULL);
-  }
-}
-
-// Сохранить факт передачи показания в массив и инициализировать событие передачи данных по WiFi на сервер
-void sendData2Web(int pin) {
-  // Включим светодиод
-  turnOnLed();
-  #ifdef DEBUG_MODE  
-  Serial.printf("запись в очередь +10 литров pin %d\n", pin);
-  #endif
-  // TODO
-  /*Pulse* p = new Pulse;
-  p->time_millis = millis();
-  p->pin = pin;
-  BaseType_t status = xQueueSendToBack(pulseQueue, &p, PULSE_MAX_DELAY);
-  if (status != pdPASS) {
+void wifiDisconnect(void) {
+  if (WiFi.isConnected()) {
     #ifdef DEBUG_MODE  
-    Serial.printf("ошибка записи в очередь %d pin %d\n", status, pin);
+    Serial.println("WiFi Disconnecting");
     #endif
-  }*/
+    WiFi.setAutoReconnect(false);
+    WiFi.disconnect(true, true);
+    while (WiFi.isConnected()) delay(5);
+    #ifdef DEBUG_MODE  
+    Serial.println("WiFi Disconnected");
+    delay(5000);
+    #endif
+  }
+  WiFi.mode(WIFI_OFF);  
+}
+
+void wifiStartConnecting(void) {
+  wifiDisconnect();
+  #ifdef DEBUG_MODE  
+  Serial.printf("\nПопытка подключения к Wi-Fi сети в течении %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
+  #endif
+
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(false);
+  connectTime = millis();
+  dottime = millis();
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+} 
+
+bool initWeb() {
+  if (!isReadMac)
+    readMacAddress();
+  // TODO инициализация подключения по WiFi
+  // TODO получение текущего времени через SNTP
+  return true;
+}
+
+void sentData2Web(std::vector<Pulse> pulseArray) {
+  #ifdef DEBUG_MODE  
+  Serial.printf("Отправка в Web массива из %d данных\n", pulseArray.size());
+  #endif
+  // TODO
 }

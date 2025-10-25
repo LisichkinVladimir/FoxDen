@@ -1,15 +1,17 @@
 #ifndef web_h
 #define web_h
 
-struct Pulse {
-  long time_millis;
-  int pin;
-};
+#include <vector>
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include <arduino_secrets.h>
 
-#define MAX_PULSE_SIZE 100
-#define PULSE_MAX_DELAY 200
+#include "main.h"
+#include "buffer.h"
 
-void initWeb(void);
-void sendData2Web(int pin);
+#define WIFI_TIMEOUT 120000   // 2 minutes
+
+bool initWeb();
+void sentData2Web(std::vector<Pulse> pulseArray);
 
 #endif
