@@ -138,7 +138,7 @@ void waitConnecting() {
     Serial.printf("WiFi Не подключено %d статус(%d) %s\n", step++, status, getStatus2Sting(status)); 
     #endif
   } while (millis() - connectTime <= WIFI_TIMEOUT);
-  if (!isConnect && millis() - connectTime > WIFI_TIMEOUT) {
+  if (!isConnect) {
       #ifdef DEBUG_MODE
       Serial.printf("Не подключено после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
       printStatus();
@@ -146,6 +146,7 @@ void waitConnecting() {
   }
 }
 
+unsigned long synchronizationStart = 0;
 unsigned long synchronizationTime = 0;
 bool isSynchronized = false;
 bool sntpFinish = false;
@@ -181,6 +182,7 @@ void setDateTime() {
   setenv("TZ", CURRENT_TZ, 1);
   tzset();
   sntpFinish = false;
+  synchronizationStart = millis();
   // Запускаем синхронизацию времени по SNTP протоколу
   sntp_setoperatingmode(SNTP_OPMODE_POLL);
   sntp_set_time_sync_notification_cb(sntp_notification);
@@ -189,11 +191,20 @@ void setDateTime() {
   sntp_setservername(2, "time.google.com");
   sntp_setservername(3, "time.windows.com");
   sntp_init();
-  while (!sntpFinish) {
-    vTaskDelay(pdMS_TO_TICKS(1500));
+  #ifdef DEBUG_MODE
+  int step = 1; 
+  #endif
+  while (!sntpFinish && millis() - synchronizationStart <= WIFI_TIMEOUT) {
     #ifdef DEBUG_MODE  
-    Serial.printf("Ожидание синхронихации времени\n");
+    Serial.printf("Ожидание синхронихации времени %d\n", step++);
     #endif
+    vTaskDelay(pdMS_TO_TICKS(1500));
+  }
+  if (!isConnect) {
+      #ifdef DEBUG_MODE
+      Serial.printf("Не произошла синхронихация времени после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
+      printStatus();
+      #endif
   }
 }
 
@@ -205,16 +216,4 @@ bool initWeb() {
     if (!isSynchronized)
       setDateTime();
   return isReadMac && isConnect && isSynchronized;
-}
-
-void sentData2Web(std::vector<Pulse> pulseArray) {
-  if (!isConnect)
-    return;
-  #ifdef DEBUG_MODE  
-  Serial.printf("Отправка в Web массива из %d данных\n", pulseArray.size());
-  #endif
-  HTTPClient http;
-  //http.begin(serverName.c_str());
-  // TODO send POST
-  // http.end();
 }
