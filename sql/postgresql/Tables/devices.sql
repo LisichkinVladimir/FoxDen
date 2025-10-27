@@ -2,7 +2,7 @@ create table devices
 (
 	id              serial primary key,     -- Идентификатор
 	type_id         integer not null,       -- Вид устройства
-	mac_adress      varchar(17) not null,   -- MAC адрес устройства
+	mac_address     varchar(17) not null,   -- MAC адрес устройства
 	serial_number   varchar(100) not null,  -- Серийный номер устройства
 	scale_unit_id   integer not null,       -- Единица измерения шкалы
 	step_increment  integer not null,       -- Шаг увеличения
@@ -16,7 +16,7 @@ create table devices
 comment on table devices                    is 'Устройства';
 comment on column devices.id                is 'Идентификатор устройства';
 comment on column devices.type_id           is 'Вид устройства';
-comment on column devices.mac_adress        is 'MAC адрес устройства';
+comment on column devices.mac_address       is 'MAC адрес устройства';
 comment on column devices.serial_number     is 'Серийный номер устройства';
 comment on column devices.scale_unit_id     is 'Единица измерения шкалы';
 comment on column devices.step_increment    is 'Шаг увеличения';

@@ -1,21 +1,22 @@
-#include "web.h"
+#include "web_wifi.h"
 
 // MAC адрес устройства
-static uint8_t MacAddress[6] = {0};
+static char MacAddress[17] = {0};
 bool isReadMac = false;
 
 bool readMacAddress() {
   WiFi.mode(WIFI_STA);
   WiFi.STA.begin();
-  esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, MacAddress);
+  uint8_t uMacAddress[6] = {0};
+  esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, uMacAddress);
   bool result = ret == ESP_OK;
   if (ret != ESP_OK)
-    memset(MacAddress, 0, sizeof(MacAddress));
-  #ifdef DEBUG_MODE  
-  Serial.print("ESP32 MAC Address: ");
-  Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
-                MacAddress[0], MacAddress[1], MacAddress[2],
-                MacAddress[3], MacAddress[4], MacAddress[5]);
+    memset(uMacAddress, 0, sizeof(uMacAddress));
+  sprintf(MacAddress, "%02x:%02x:%02x:%02x:%02x:%02x", 
+    uMacAddress[0], uMacAddress[1], uMacAddress[2],
+    uMacAddress[3], uMacAddress[4], uMacAddress[5]);
+  #ifdef DEBUG_MODE
+  Serial.printf("ESP32 MAC Address: %s\n", MacAddress);
   #endif
   isReadMac = result;
   return result;
@@ -138,7 +139,7 @@ void waitConnecting() {
     Serial.printf("WiFi Не подключено %d статус(%d) %s\n", step++, status, getStatus2Sting(status)); 
     #endif
   } while (millis() - connectTime <= WIFI_TIMEOUT);
-  if (!isConnect && millis() - connectTime > WIFI_TIMEOUT) {
+  if (!isConnect) {
       #ifdef DEBUG_MODE
       Serial.printf("Не подключено после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
       printStatus();
@@ -146,6 +147,7 @@ void waitConnecting() {
   }
 }
 
+unsigned long synchronizationStart = 0;
 unsigned long synchronizationTime = 0;
 bool isSynchronized = false;
 bool sntpFinish = false;
@@ -181,6 +183,7 @@ void setDateTime() {
   setenv("TZ", CURRENT_TZ, 1);
   tzset();
   sntpFinish = false;
+  synchronizationStart = millis();
   // Запускаем синхронизацию времени по SNTP протоколу
   sntp_setoperatingmode(SNTP_OPMODE_POLL);
   sntp_set_time_sync_notification_cb(sntp_notification);
@@ -189,32 +192,28 @@ void setDateTime() {
   sntp_setservername(2, "time.google.com");
   sntp_setservername(3, "time.windows.com");
   sntp_init();
-  while (!sntpFinish) {
-    vTaskDelay(pdMS_TO_TICKS(1500));
+  #ifdef DEBUG_MODE
+  int step = 1; 
+  #endif
+  while (!sntpFinish && millis() - synchronizationStart <= WIFI_TIMEOUT) {
     #ifdef DEBUG_MODE  
-    Serial.printf("Ожидание синхронихации времени\n");
+    Serial.printf("Ожидание синхронихации времени %d\n", step++);
     #endif
+    vTaskDelay(pdMS_TO_TICKS(1500));
   }
+  #ifdef DEBUG_MODE
+  if (!isConnect)
+    Serial.printf("Не произошла синхронихация времени после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
+  #endif
 }
 
-bool initWeb() {
+bool initWeb(char* mac_address) {
   if (!isReadMac)
     readMacAddress();
   waitConnecting();
   if (isConnect)
     if (!isSynchronized)
       setDateTime();
+  mac_address = MacAddress;
   return isReadMac && isConnect && isSynchronized;
-}
-
-void sentData2Web(std::vector<Pulse> pulseArray) {
-  if (!isConnect)
-    return;
-  #ifdef DEBUG_MODE  
-  Serial.printf("Отправка в Web массива из %d данных\n", pulseArray.size());
-  #endif
-  HTTPClient http;
-  //http.begin(serverName.c_str());
-  // TODO send POST
-  // http.end();
 }
