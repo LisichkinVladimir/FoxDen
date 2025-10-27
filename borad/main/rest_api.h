@@ -8,6 +8,6 @@
 
 #define SERVER_NAME "http://localhost:5000/"
 
-void sentData2Web(std::vector<Pulse> pulseArray);
+void sentData2Web(char* mac_address, std::vector<Pulse> pulseArray);
 
 #endif

@@ -1,8 +1,8 @@
 #include "rest_api.h"
 
-void sentData2Web(std::vector<Pulse> pulseArray) {
+void sentData2Web(char* mac_address, std::vector<Pulse> pulseArray) {
   #ifdef DEBUG_MODE  
-  Serial.printf("Отправка в Web массива из %d данных\n", pulseArray.size());
+  Serial.printf("Отправка в Web массива из %d данных для устройства с mac адресом %s\n", pulseArray.size(), mac_address);
   return;
   #endif
   HTTPClient http;

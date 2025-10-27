@@ -1,21 +1,22 @@
-#include "web.h"
+#include "web_wifi.h"
 
 // MAC адрес устройства
-static uint8_t MacAddress[6] = {0};
+static char MacAddress[17] = {0};
 bool isReadMac = false;
 
 bool readMacAddress() {
   WiFi.mode(WIFI_STA);
   WiFi.STA.begin();
-  esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, MacAddress);
+  uint8_t uMacAddress[6] = {0};
+  esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, uMacAddress);
   bool result = ret == ESP_OK;
   if (ret != ESP_OK)
-    memset(MacAddress, 0, sizeof(MacAddress));
-  #ifdef DEBUG_MODE  
-  Serial.print("ESP32 MAC Address: ");
-  Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
-                MacAddress[0], MacAddress[1], MacAddress[2],
-                MacAddress[3], MacAddress[4], MacAddress[5]);
+    memset(uMacAddress, 0, sizeof(uMacAddress));
+  sprintf(MacAddress, "%02x:%02x:%02x:%02x:%02x:%02x", 
+    uMacAddress[0], uMacAddress[1], uMacAddress[2],
+    uMacAddress[3], uMacAddress[4], uMacAddress[5]);
+  #ifdef DEBUG_MODE
+  Serial.printf("ESP32 MAC Address: %s\n", MacAddress);
   #endif
   isReadMac = result;
   return result;
@@ -200,20 +201,19 @@ void setDateTime() {
     #endif
     vTaskDelay(pdMS_TO_TICKS(1500));
   }
-  if (!isConnect) {
-      #ifdef DEBUG_MODE
-      Serial.printf("Не произошла синхронихация времени после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
-      printStatus();
-      #endif
-  }
+  #ifdef DEBUG_MODE
+  if (!isConnect)
+    Serial.printf("Не произошла синхронихация времени после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
+  #endif
 }
 
-bool initWeb() {
+bool initWeb(char* mac_address) {
   if (!isReadMac)
     readMacAddress();
   waitConnecting();
   if (isConnect)
     if (!isSynchronized)
       setDateTime();
+  mac_address = MacAddress;
   return isReadMac && isConnect && isSynchronized;
 }

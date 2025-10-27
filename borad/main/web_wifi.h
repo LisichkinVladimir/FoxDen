@@ -1,5 +1,5 @@
-#ifndef web_h
-#define web_h
+#ifndef web_wifi_h
+#define web_wifi_h
 
 #include <vector>
 #include <stdlib.h>
@@ -22,6 +22,6 @@
 #undef SHOW_NETWORKS
 #define CURRENT_TZ TZ_Europe_Moscow
 
-bool initWeb();
+bool initWeb(char* mac_address);
 
 #endif

@@ -11,7 +11,7 @@
 
 #include "main.h"
 #include "pulse_led.h"
-#include "web.h"
+#include "web_wifi.h"
 
 struct Pulse {
   long time_millis;
