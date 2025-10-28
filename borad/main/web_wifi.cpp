@@ -36,8 +36,8 @@ void Disconnect(void) {
     while (WiFi.isConnected()) delay(5);
     #ifdef DEBUG_MODE  
     Serial.println("WiFi Disconnected");
-    delay(5000);
     #endif
+    delay(5000);
   }
   WiFi.mode(WIFI_OFF);  
 }
