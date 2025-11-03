@@ -39,7 +39,7 @@ static void SenderTask(void *pvParameters) {
         }
         // Отправить данные через интернет
         if (pulseArray.size() > 0)
-          sentData2Web(mac_address, pulseArray);
+          sendData2Web(mac_address, pulseArray);
       }
     }
   }
