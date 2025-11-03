@@ -14,7 +14,12 @@ def connect_device():
     """ Метод подключения устройств """
     if not 'mac_address' in request.args:
         # Bad Request - сервер не может понять запрос из-за неправильного синтаксиса
-        error_message = {"error": {"error_code": 400, "error_message": "Invalid request parameters."}}
+        error_message = {
+                "error": {
+                    "error_code": 400, "error_message": "Invalid request parameters."
+                },
+                "result": {}
+            }
         abort(400, description=jsonify(error_message))
     mac_address = request.args['mac_address']
     # pin = Получить пин из параметров проверить наличие ключа pin в request.args
@@ -33,7 +38,7 @@ def connect_device():
         abort(401)
     else:
         # Если есть - вернуть id устройства
-        # использовать jsonify для того что бы вернуть JSON объект {"error": {}, result: {"device_id": }}
+        # использовать jsonify для того что бы вернуть JSON объект {"error": {}, "result": {"device_id": }}
         return f"connect device from {mac_address} id {rows[0].id}"
 
 if __name__ == 'main':
