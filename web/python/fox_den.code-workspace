@@ -1,0 +1,42 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": 
+	{
+		"launch": {
+			"configurations": [
+				{
+					"name": "Python: Current File with my args",
+					"type": "debugpy",
+					"request": "launch",
+					"program": "${file}",
+					"console": "integratedTerminal"            
+				}            
+			]
+		},
+		"python.analysis.diagnosticSeverityOverrides": {
+			"reportUnusedImport": "information"
+		},
+		"workbench.startupEditor": "none",
+		"redhat.telemetry.enabled": false,
+		"pylint.args": [
+			"--disable=C0103",
+			"--disable=W0102",
+			"--disable=W1510",
+			"--disable=C0201"
+		],
+		"cSpell.language": "en,ru",
+		"cSpell.ignorePaths": [
+			"*.code-workspace",
+			"settings.json",
+			"fox_den.code-workspace"
+		],
+		"cSpell.userWords": [
+			"foxden"
+		],
+		"workbench.editor.empty.hint": "hidden"
+	}	
+}
