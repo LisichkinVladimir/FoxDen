@@ -1,7 +1,7 @@
 #include "web_wifi.h"
 
 // MAC адрес устройства
-static char MacAddress[17] = {0};
+char MacAddress[17] = {0};
 bool isReadMac = false;
 
 bool readMacAddress() {
@@ -15,6 +15,8 @@ bool readMacAddress() {
   sprintf(MacAddress, "%02x:%02x:%02x:%02x:%02x:%02x", 
     uMacAddress[0], uMacAddress[1], uMacAddress[2],
     uMacAddress[3], uMacAddress[4], uMacAddress[5]);
+  for (int i = 0; i < sizeof(MacAddress); ++i) 
+    MacAddress[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(MacAddress[i])));
   #ifdef DEBUG_MODE
   Serial.printf("ESP32 MAC Address: %s\n", MacAddress);
   #endif
@@ -24,7 +26,7 @@ bool readMacAddress() {
 
 unsigned long connectTime = 0;
 unsigned long etime = 0;
-bool isConnect = false;
+bool isWIFIConnect = false;
 
 void Disconnect(void) {
   if (WiFi.isConnected()) {
@@ -132,14 +134,14 @@ void waitConnecting() {
       Serial.println(WiFi.localIP());
       Serial.printf("Подключено после %u ms\n", etime);
       #endif
-      isConnect = true;
+      isWIFIConnect = true;
       break;
     }
     #ifdef DEBUG_MODE
     Serial.printf("WiFi Не подключено %d статус(%d) %s\n", step++, status, getStatus2Sting(status)); 
     #endif
   } while (millis() - connectTime <= WIFI_TIMEOUT);
-  if (!isConnect) {
+  if (!isWIFIConnect) {
       #ifdef DEBUG_MODE
       Serial.printf("Не подключено после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
       printStatus();
@@ -202,7 +204,7 @@ void setDateTime() {
     vTaskDelay(pdMS_TO_TICKS(1500));
   }
   #ifdef DEBUG_MODE
-  if (!isConnect)
+  if (!isSynchronized)
     Serial.printf("Не произошла синхронихация времени после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
   #endif
 }
@@ -211,9 +213,9 @@ bool initWeb(char* mac_address) {
   if (!isReadMac)
     readMacAddress();
   waitConnecting();
-  if (isConnect)
+  if (isWIFIConnect)
     if (!isSynchronized)
       setDateTime();
   mac_address = MacAddress;
-  return isReadMac && isConnect && isSynchronized;
+  return isReadMac && isWIFIConnect && isSynchronized;
 }
