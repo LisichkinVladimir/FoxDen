@@ -35,7 +35,8 @@
 			"fox_den.code-workspace"
 		],
 		"cSpell.userWords": [
-			"foxden"
+			"foxden",
+			"jsonify"
 		],
 		"workbench.editor.empty.hint": "hidden"
 	}	
