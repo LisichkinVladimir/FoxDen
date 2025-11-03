@@ -22,11 +22,10 @@ def connect_device():
             }
         abort(400, description=jsonify(error_message))
     mac_address = request.args['mac_address']
-    # pin = Получить пин из параметров проверить наличие ключа pin в request.args
-    # Подключиться к базе данных
     connect = connect_database()
     if connect is None:
         # Unauthorized - у клиента отсутствуют действительные учетные данные аутентификации
+        # TODO error_message - ошибка в JSON формате
         abort(401)
     # Сделать запрос к таблице devices проверив есть ли устройство с переданным mac адресом
     # добавить параметр pin
@@ -34,12 +33,14 @@ def connect_device():
     result = connect.execute(text(query))
     rows = result.fetchall()
 
-    if rows is None or len(rows) == 0 or (len(rows) > 0 and rows[0].id is None):
+    if rows is None or len(rows) == 0:
+        # TODO error_message - ошибка в JSON формате
         abort(401)
-    else:
-        # Если есть - вернуть id устройства
-        # использовать jsonify для того что бы вернуть JSON объект {"error": {}, "result": {"device_id": }}
-        return f"connect device from {mac_address} id {rows[0].id}"
+    # Если есть - вернуть id устройств
+    # TODO цикл по всем устройствам подключенным к esp32 с данным MAC address'ом
+    # for row in rows - сформировать массив devices
+    # использовать jsonify для того что бы вернуть JSON объект {"error": {}, "result": {"devices": [] }}
+    return f"connect device from {mac_address} id {rows[0].id}"
 
 if __name__ == 'main':
     app.run(debug=True)
