@@ -11,7 +11,7 @@
 
 #include "buffer.h"
 
-#define SERVER_NAME "http://localhost:5000/"
+#define SERVER_NAME "http://192.168.1.6:5000/"
 #define CONNECT_ATTEMPT 2
 
 void sendData2Web(char* mac_address, std::vector<Pulse> pulseArray);

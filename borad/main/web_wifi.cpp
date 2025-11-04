@@ -1,7 +1,7 @@
 #include "web_wifi.h"
 
 // MAC адрес устройства
-char MacAddress[17] = {0};
+char MacAddress[18] = {0};
 bool isReadMac = false;
 
 bool readMacAddress() {
@@ -153,28 +153,32 @@ unsigned long synchronizationStart = 0;
 unsigned long synchronizationTime = 0;
 bool isSynchronized = false;
 bool sntpFinish = false;
+SemaphoreHandle_t synchronizationMutex;
 
 void sntp_notification(struct timeval *tv)
 {
   struct tm timeinfo;
-  char strftime_buf[20];
+  char strftime_buf[20] = {0};
   localtime_r(&tv->tv_sec, &timeinfo);
-  if (timeinfo.tm_year < (1970 - 1900)) {
-    isSynchronized = false;
-    #ifdef DEBUG_MODE  
-    Serial.printf("Синхронизация времени не удалась!\n");
-    #endif
-  } else {
-    // Post time event
-    // eventLoopPost(RE_TIME_EVENTS, RE_TIME_SNTP_SYNC_OK, nullptr, 0, portMAX_DELAY);
-    isSynchronized = true;
-    synchronizationTime = millis();
-    #ifdef DEBUG_MODE  
-    strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &timeinfo);
-    Serial.printf("Синхронизация времени завершена, текущее время: %s\n", strftime_buf);
-    #endif
-  };
-  sntpFinish = true;
+  if (xSemaphoreTake(synchronizationMutex, 200) == pdTRUE) {
+    if (timeinfo.tm_year < (1970 - 1900)) {
+      isSynchronized = false;
+      #ifdef DEBUG_MODE  
+      Serial.printf("Синхронизация времени не удалась!\n");
+      #endif
+    } else {
+      // Post time event
+      // eventLoopPost(RE_TIME_EVENTS, RE_TIME_SNTP_SYNC_OK, nullptr, 0, portMAX_DELAY);
+      isSynchronized = true;
+      synchronizationTime = millis();
+      #ifdef DEBUG_MODE  
+      strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &timeinfo);
+      Serial.printf("Синхронизация времени завершена, текущее время: %s\n", strftime_buf);
+      #endif
+    };
+    sntpFinish = true;
+    xSemaphoreGive(synchronizationMutex);
+  }
 }
 
 // SNTP-синхронизация времени
@@ -186,6 +190,8 @@ void setDateTime() {
   tzset();
   sntpFinish = false;
   synchronizationStart = millis();
+  // Создание семафора
+  synchronizationMutex = xSemaphoreCreateBinary();
   // Запускаем синхронизацию времени по SNTP протоколу
   sntp_setoperatingmode(SNTP_OPMODE_POLL);
   sntp_set_time_sync_notification_cb(sntp_notification);
@@ -197,25 +203,33 @@ void setDateTime() {
   #ifdef DEBUG_MODE
   int step = 1; 
   #endif
-  while (!sntpFinish && millis() - synchronizationStart <= WIFI_TIMEOUT) {
-    #ifdef DEBUG_MODE  
-    Serial.printf("Ожидание синхронихации времени %d\n", step++);
-    #endif
+  while (true) {
+    if (xSemaphoreTake(synchronizationMutex, 200) == pdTRUE) {
+      if (sntpFinish || millis() - synchronizationStart > WIFI_TIMEOUT)
+        break;
+      #ifdef DEBUG_MODE  
+      Serial.printf("Ожидание синхронихации времени %d\n", step++);
+      #endif
+    }
+    xSemaphoreGive(synchronizationMutex);
     vTaskDelay(pdMS_TO_TICKS(1500));
   }
+  vSemaphoreDelete(synchronizationMutex);
   #ifdef DEBUG_MODE
   if (!isSynchronized)
     Serial.printf("Не произошла синхронихация времени после %.1f секунд\n", (1.0*WIFI_TIMEOUT)/1000);
+  else
+    Serial.print("Ожидание завершено\n");
   #endif
 }
 
-bool initWeb(char* mac_address) {
+bool initWeb(char** mac_address) {
   if (!isReadMac)
     readMacAddress();
   waitConnecting();
   if (isWIFIConnect)
     if (!isSynchronized)
       setDateTime();
-  mac_address = MacAddress;
+  *mac_address = MacAddress;
   return isReadMac && isWIFIConnect && isSynchronized;
 }

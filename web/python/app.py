@@ -12,7 +12,15 @@ def hello_world():
 @app.route('/connect_device', methods=['POST'])
 def connect_device():
     """ Метод подключения устройств """
-    if not 'mac_address' in request.args:
+    mac_address = None
+    if request.is_json:
+        data = request.get_json()
+        if 'mac_address' in data:
+            mac_address = data['mac_address']
+    else:
+        if 'mac_address' in request.args:
+            mac_address = request.args['mac_address']
+    if mac_address is None:
         # Bad Request - сервер не может понять запрос из-за неправильного синтаксиса
         error_message = {
                 "error": {
@@ -21,7 +29,6 @@ def connect_device():
                 "result": {}
             }
         abort(400, description=jsonify(error_message))
-    mac_address = request.args['mac_address']
     connect = connect_database()
     if connect is None:
         # Unauthorized - у клиента отсутствуют действительные учетные данные аутентификации

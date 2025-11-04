@@ -4,6 +4,10 @@ bool isConnect = false;
 std::unordered_map<std::string, std::string> mac_hash;
 
 void generateSHA256(char* mac_address) {
+  #ifdef DEBUG_MODE
+  Serial.printf("Генерация MAC hash %s\n", mac_address);
+  #endif
+
   std::vector<uint8_t> hash(32);
 
 	mbedtls_md_context_t ctx;
@@ -26,12 +30,16 @@ void generateSHA256(char* mac_address) {
   for (int i = 0; i < hash.size()*2; ++i) 
     hash_address[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(hash_address[i])));
   #ifdef DEBUG_MODE
-  Serial.printf("Генерация MAC hash %s\n", hash_address);
+  Serial.printf("MAC hash сгенерирован %s\n", hash_address);
   #endif
   mac_hash[mac_address] = hash_address;
 }
 
 void connect2Web(char* mac_address) {
+  #ifdef DEBUG_MODE
+  Serial.print("Start connect2Web\n");
+  Serial.printf("MAC address %s\n", mac_address);
+  #endif
   if (!mac_hash.contains(mac_address))
     generateSHA256(mac_address);
   std::string hash = mac_hash[mac_address];
@@ -49,7 +57,7 @@ void connect2Web(char* mac_address) {
   int httpResponseCode = http.POST(httpRequestData.c_str());
 
   #ifdef DEBUG_MODE
-  Serial.printf("HTTP Response code: %d\n", httpResponseCode);
+  Serial.printf("HTTP Response from %s code: %d\n", server.c_str(), httpResponseCode);
   #endif
   if (httpResponseCode > 0) {
     String response = http.getString();
