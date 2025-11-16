@@ -26,6 +26,7 @@ def hello_world():
 @app.route('/connect_device', methods=['POST'])
 def connect_device():
     """ Метод подключения устройств """
+    # Получение параметра mac_address
     mac_address = None
     if request.is_json:
         data = request.get_json()
@@ -43,25 +44,45 @@ def connect_device():
                 "result": {}
             }
         abort(400, description=jsonify(error_message))
+
+    # Подключение к БД
     connect = connect_database()
     if connect is None:
         # Unauthorized - у клиента отсутствуют действительные учетные данные аутентификации
-        # TODO error_message - ошибка в JSON формате
-        abort(401)
-    # Сделать запрос к таблице devices проверив есть ли устройство с переданным mac адресом
-    logger.info(f"Connection attempt for MAC: {mac_address}")
+        error_message = {
+                "error": {
+                    "error_code": 401, "error_message": "Unauthorized"
+                },
+                "result": {}
+            }
+        abort(401, description=jsonify(error_message))
+
+    # Потск в таблице devices устройства с переданным mac адресом
+    print(f"Connection attempt for MAC: {mac_address}")
     query = f"select public.find_device(\'{mac_address}\') as id"
     result = connect.execute(text(query))
     rows = result.fetchall()
-
     if rows is None or len(rows) == 0:
-        # TODO error_message - ошибка в JSON формате
-        abort(401)
+        error_message = {
+                "error": {
+                    "error_code": 401, "error_message": "Unauthorized"
+                },
+                "result": {}
+            }
+        abort(401, description=jsonify(error_message))
     # Если есть - вернуть id устройств
-    # TODO цикл по всем устройствам подключенным к esp32 с данным MAC address'ом
-    # for row in rows - сформировать массив devices
-    # использовать jsonify для того что бы вернуть JSON объект {"error": {}, "result": {"devices": [] }}
-    return f"connect device from {mac_address} id {rows[0].id}"
+    devices = []
+    for row in rows:
+        print(f"row.id: {row.id}")
+        if row.id:  # Проверяем, что id не None
+            devices.append(row.id)
+    result = {
+            "error": {}, 
+            "result": {
+                "devices": devices 
+            }
+        }
+    return jsonify(result)
 
-if __name__ == 'main':
+if __name__ == '__main__':
     app.run(debug=True)
