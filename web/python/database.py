@@ -1,5 +1,6 @@
 """ Работа с БД Postgresql """
 import os
+import logging
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Connection
 
@@ -14,8 +15,15 @@ def connect_database()-> Connection:
 
         engine = create_engine(database_url)
         connect = engine.connect()
-        print("Успешно подключились к БД")
+        logging.info("Успешно подключились к БД")
         return connect
     except Exception as ex:
-        print(f"Ошибка подключения к БД: {ex}")
+        logging.info(f"Ошибка подключения к БД: {ex}")
         return None
+
+def main():
+    """ Config main """
+    raise SystemError("This file cannot be operable")
+
+if __name__ == "__main__":
+    main()

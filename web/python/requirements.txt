@@ -1,4 +1,6 @@
 Flask==3.1.2
+Flask-JWT-Extended==4.7.1
+PyJWT==2.10.1
 psycopg2==2.9.11
 python-logstash==0.4.8
 requests==2.32.3
