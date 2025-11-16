@@ -1,7 +1,21 @@
 """ Сервер приложения FoxDen """
+import logging
+import sys
 from flask import Flask, request, jsonify, abort
 from sqlalchemy import text
 from database import connect_database
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),  # Вывод в консоль
+        logging.FileHandler('foxden.log')   # Запись в файл
+    ]
+)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 
 @app.route('/')
@@ -35,7 +49,7 @@ def connect_device():
         # TODO error_message - ошибка в JSON формате
         abort(401)
     # Сделать запрос к таблице devices проверив есть ли устройство с переданным mac адресом
-    # добавить параметр pin
+    logger.info(f"Connection attempt for MAC: {mac_address}")
     query = f"select public.find_device(\'{mac_address}\') as id"
     result = connect.execute(text(query))
     rows = result.fetchall()
