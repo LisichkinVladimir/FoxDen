@@ -15,11 +15,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logging.getLogger().addHandler(logging.StreamHandler())
 
-BOT_TOKEN = os.getenv("FOXDEN_SECRET_KEY")
-if BOT_TOKEN is None:
-    logging.error("FOXDEN_SECRET_KEY is None")
+FOXDEN_TOKEN = os.getenv("foxden_secret_key")
+if FOXDEN_TOKEN is None:
+    logging.error("foxden_secret_key is None")
 else:
-    logging.info("FOXDEN_SECRET_KEY is not None")
+    logging.info("foxden_secret_key is not None")
 
 def main():
     """ Config main """
