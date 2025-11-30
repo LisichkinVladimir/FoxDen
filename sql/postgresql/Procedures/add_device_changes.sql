@@ -1,9 +1,8 @@
 create or replace procedure add_device_changes(
-    p_mac_address varchar,
-    p_device_id integer,
-	p_moment timestamp 
+    p_mac_address   varchar,
+    p_device_id     integer,
+	p_moment        timestamp with time zone
 )
-language plpgsql
 as $$
 declare
 	v_id integer;
@@ -19,7 +18,7 @@ begin
 	if not found then
         raise notice 'device not found.';
     end if;
-	insert into public.device_changes (device_id, momet)
-	values (p_device_id, p_momet);
+	insert into public.device_changes (device_id, moment)
+	values (p_device_id, p_moment);
 end;
-$$;
+$$ language plpgsql SECURITY DEFINER;

@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "Bounce2.h"
 #include "pulse_led.h"
+#include "rest_api.h"
 
 // Пины к которым подключены устройства
 static uint8_t GPIOPin[PIN_COUNT] = {0, 1};
@@ -32,7 +33,7 @@ void setup() {
 
 void loop() {
   delay(1000);
-  for(int i = 0; i < PIN_COUNT; i++) {
+  /*for(int i = 0; i < PIN_COUNT; i++) {
     int val = digitalRead(GPIOPin[i]);
     #ifdef DEBUG_MODE  
     static int step = 0;
@@ -49,5 +50,10 @@ void loop() {
     }
   }
   // Выключим светодиод после задержки, если он был включен
-  turnOffLed(DELAY);
+  turnOffLed(DELAY);*/
+  char* mac_address = NULL;
+  if (initWeb(&mac_address)) {
+    connect2Web(mac_address);
+    Serial.print("NEW loop\n");
+  }
 }

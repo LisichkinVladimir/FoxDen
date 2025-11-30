@@ -1,6 +1,5 @@
 #include "rest_api.h"
 
-bool isConnect = false;
 std::unordered_map<std::string, std::string> mac_hash;
 
 void generateSHA256(char* mac_address) {
@@ -35,7 +34,11 @@ void generateSHA256(char* mac_address) {
   mac_hash[mac_address] = hash_address;
 }
 
-void connect2Web(char* mac_address) {
+bool isConnect = false;
+std::string access_token = "";
+std::map<int, int> pin_id;
+
+bool connect2Web(char* mac_address) {
   #ifdef DEBUG_MODE
   Serial.print("Start connect2Web\n");
   Serial.printf("MAC address %s\n", mac_address);
@@ -46,45 +49,158 @@ void connect2Web(char* mac_address) {
   #ifdef DEBUG_MODE
   Serial.printf("MAC hash %s\n", hash.c_str());
   #endif
-
-  HTTPClient http;
-
+  
+  WiFiClient client;
+  HTTPClient http;  
   std::string server = std::string(SERVER_NAME) + "connect_device";
-  http.begin(server.c_str());
+  if (!http.begin(client, server.c_str())) {
+    #ifdef DEBUG_MODE
+    Serial.printf("Error begin http connection to %s", server.c_str());
+    #endif
+    return false;
+  }
   http.addHeader("Content-Type", "application/json");
   std::string httpRequestData = "{\"mac_address\": \"" + hash + "\"}";
 
   int httpResponseCode = http.POST(httpRequestData.c_str());
-
   #ifdef DEBUG_MODE
-  Serial.printf("HTTP Response from %s code: %d\n", server.c_str(), httpResponseCode);
+  Serial.printf("HTTP from %s code: %d\n", server.c_str(), httpResponseCode);  
   #endif
+
+  String payload;
   if (httpResponseCode > 0) {
-    String response = http.getString();
+    payload = client.readString();
     #ifdef DEBUG_MODE
-    Serial.printf("Server Response: %s\n", response);
+    Serial.printf("Responce: %s\n", payload.c_str());
     #endif
-  } 
-  else {
+  }
+
+  client.stop();
+  http.end();
+
+  if (httpResponseCode != HTTP_CODE_OK) {
     #ifdef DEBUG_MODE
     Serial.print("Error on sending POST\n");
     #endif
+    return false;
   }
-  http.end();
-  // TODO 
-  // Получить список ID устройств (для каждого пина)
+  
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, payload);
+  if (error) {
+    #ifdef DEBUG_MODE
+    Serial.printf("DeserializeJson failed: %s\n", error.f_str());
+    #endif
+    return false;
+  }  
+  #ifdef DEBUG_MODE
+  Serial.print("DeserializeJson parsed succesfully\n");
+  #endif
   // Получить сессионный ключ
+  if (!doc.containsKey("result")) {
+    #ifdef DEBUG_MODE
+    Serial.printf("No result in payload");
+    #endif
+    return false;
+  }
+  if (doc["result"].containsKey("access_token")) {
+    access_token = std::string(doc["result"]["access_token"]);
+    #ifdef DEBUG_MODE
+    Serial.printf("Access token %s\n", access_token.c_str());
+    #endif
+  }  else {
+    #ifdef DEBUG_MODE
+    Serial.print("No access token in payload\n");
+    #endif
+    return false;
+  }
+  // Получить список ID устройств (для каждого пина)
+  if (doc["result"].containsKey("devices")) {
+    JsonDocument devices = doc["result"]["devices"];
+    #ifdef DEBUG_MODE
+    String jsonString;
+    serializeJson(devices, jsonString);    
+    Serial.printf("Devices %s count: %d\n", jsonString.c_str(), devices.size());
+    #endif
+    pin_id.clear();
+    for(int i = 0; i < devices.size(); i++) {
+      int id = devices[i]["id"];
+      int pin = devices[i]["pin"];
+      #ifdef DEBUG_MODE
+      Serial.printf("Id=%d pin=%d\n", id, pin);
+      #endif
+      pin_id[pin] = id;
+    }
+    isConnect = true;
+  } else {
+    #ifdef DEBUG_MODE
+    Serial.printf("No device list in payload");
+    #endif
+    return false;
+  }
+
+  return true;
 }
 
-void sendData2Web(char* mac_address, std::vector<Pulse> pulseArray) {
+bool sendData2Web(char* mac_address, std::vector<Pulse> pulseArray) {
   #ifdef DEBUG_MODE  
   Serial.printf("Отправка в Web массива из %d данных для устройства с mac адресом %s\n", pulseArray.size(), mac_address);  
   #endif
 
   int connectAttempt = 0;
-  while (isConnect || connectAttempt < CONNECT_ATTEMPT) {    
+  while (!isConnect && connectAttempt < CONNECT_ATTEMPT) {    
     connect2Web(mac_address);
     vTaskDelay(pdMS_TO_TICKS(1000));
+    connectAttempt++;
   }
-  // TODO используя сессионный ключ послать данные SERVER_NAME + "send_device_data"
+  if (!isConnect) {
+    #ifdef DEBUG_MODE  
+    Serial.print("Ошибка подключения\n");  
+    #endif
+    return false;
+  }
+
+  // Используя сессионный ключ послать данные SERVER_NAME + "send_device_data"
+  WiFiClient client;
+  HTTPClient http;  
+  std::string server = std::string(SERVER_NAME) + "add_device_changes";
+  if (!http.begin(client, server.c_str())) {
+    #ifdef DEBUG_MODE
+    Serial.printf("Error begin http connection to %s", server.c_str());
+    #endif
+    return false;
+  }
+  std::string authorization = "Bearer " + access_token;
+  http.addHeader("Authorization", authorization.c_str());
+  http.addHeader("Content-Type", "application/json");
+
+  for (int i = 0; i < pulseArray.size(); ) {
+    // {"device_id": "1", "moment": "2012-04-21T18:25:43-05:00" }
+    std::string httpRequestData = "{\"device_id\": \"" + std::to_string(pin_id[pulseArray[i].pin]) + "\", ";
+    httpRequestData = httpRequestData + "\"moment\": \"" + "TODO_moment" + "\"}";
+
+    int httpResponseCode = http.POST(httpRequestData.c_str());
+    #ifdef DEBUG_MODE
+    Serial.printf("HTTP from %s code: %d\n", server.c_str(), httpResponseCode);  
+    #endif
+
+    String payload;
+    if (httpResponseCode > 0) {
+      payload = client.readString();
+      #ifdef DEBUG_MODE
+      Serial.printf("Responce: %s\n", payload.c_str());
+      #endif
+    }
+
+    if (httpResponseCode != HTTP_CODE_OK) {
+      #ifdef DEBUG_MODE
+      Serial.print("Error on sending POST\n");
+      #endif
+    }
+
+  }
+  client.stop();
+  http.end();
+
+  return true;
 }

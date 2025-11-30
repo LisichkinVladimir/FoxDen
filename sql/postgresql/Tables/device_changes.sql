@@ -3,7 +3,7 @@ create table device_changes
 	device_id   integer not null,						-- Идентификатор устройства
 	moment      timestamp with time zone not null,	    -- Время поступления информации
 	foreign key (device_id) references devices(id)
-) partition by range(public.get_year(moment));
+);
 comment on table device_changes             is 'Информация об изменения утройств';
 comment on column device_changes.device_id  is 'Идентификатор устройства';
 comment on column device_changes.moment     is 'Время поступления информации';

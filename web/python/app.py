@@ -46,7 +46,7 @@ def connect_device():
     try:
         logging.info("Connection attempt for MAC: %s", mac_address)
         # Используем параметризованный запрос для безопасности
-        query = text("SELECT public.find_device(:mac_address) as id")
+        query = text("select * from public.find_device(:mac_address)")
         result = connect.execute(query, {"mac_address": mac_address})
         rows = result.fetchall()
 
@@ -55,9 +55,9 @@ def connect_device():
 
         devices = []
         for row in rows:
-            logging.info("row.id: %s", row.id)
+            logging.info("row.id: {row.id} row.pin {row.pin}")
             if row.id:
-                devices.append(row.id)
+                devices.append({"id": row.id, "pin:": row.pin})
 
         if not devices:
             return json_error(401, "Unauthorized"), 401
@@ -82,12 +82,13 @@ def connect_device():
         if connect:
             close_connection(connect)
 
-@jwt_required()
 @app.route('/add_device_changes', methods=['POST'])
+@jwt_required()
 def add_device_changes():
     """ Запись об изменении показания устройства """
     device_id = None
     moment = None
+    mac_address = get_jwt_identity()
 
     if request.is_json:
         data = request.get_json()
@@ -105,13 +106,13 @@ def add_device_changes():
         return json_error(401, "Unauthorized"), 401
 
     try:
-        mac_address = get_jwt_identity()
         query = text("call public.add_device_changes(:mac_address, :device_id, :moment)")
-        connect.execute(query, {
-            "mac_address": mac_address,
-            "device_id": device_id,
-            "moment": moment
-        })
+        with connect.begin():
+            connect.execute(query, {
+                "mac_address": mac_address,
+                "device_id": device_id,
+                "moment": moment
+            })
 
         result_data = {
             "error": {},

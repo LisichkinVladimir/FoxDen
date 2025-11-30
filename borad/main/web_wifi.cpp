@@ -224,6 +224,9 @@ void setDateTime() {
 }
 
 bool initWeb(char** mac_address) {
+  #ifdef DEBUG_MODE
+  Serial.println("initWeb");
+  #endif
   if (!isReadMac)
     readMacAddress();
   waitConnecting();

@@ -17,6 +17,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+logging.getLogger().addHandler(logging.StreamHandler())
 
 # Получаем секретный ключ из переменных окружения
 FOXDEN_TOKEN = os.getenv("FOXDEN_SECRET_KEY", "default_fallback_secret_key_for_development")
