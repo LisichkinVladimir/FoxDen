@@ -17,7 +17,7 @@
 #define SERVER_NAME "http://192.168.1.14:5000/"
 #define CONNECT_ATTEMPT 2
 
-bool sendData2Web(char* mac_address, std::vector<Pulse> pulseArray);
+bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std::vector<Pulse> pulseArray);
 bool connect2Web(char* mac_address);
 
 #endif

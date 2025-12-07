@@ -52,8 +52,15 @@ void loop() {
   // Выключим светодиод после задержки, если он был включен
   turnOffLed(DELAY);*/
   char* mac_address = NULL;
-  if (initWeb(&mac_address)) {
-    connect2Web(mac_address);
+  tm* timeinfo = NULL;
+  unsigned long* synchTime = NULL;
+  if (initWeb(&mac_address, &timeinfo, &synchTime)) {
+    Pulse p = {millis(), 0};
+    std::vector<Pulse> pulseArray;
+    if (connect2Web(mac_address)) {
+      pulseArray.push_back(p);
+      sendData2Web(mac_address, timeinfo, synchTime, pulseArray);
+    }
     Serial.print("NEW loop\n");
   }
 }

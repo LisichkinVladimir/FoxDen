@@ -154,14 +154,14 @@ unsigned long synchronizationTime = 0;
 bool isSynchronized = false;
 bool sntpFinish = false;
 SemaphoreHandle_t synchronizationMutex;
+struct tm curr_timeinfo;
 
 void sntp_notification(struct timeval *tv)
 {
-  struct tm timeinfo;
   char strftime_buf[20] = {0};
-  localtime_r(&tv->tv_sec, &timeinfo);
+  localtime_r(&tv->tv_sec, &curr_timeinfo);
   if (xSemaphoreTake(synchronizationMutex, 200) == pdTRUE) {
-    if (timeinfo.tm_year < (1970 - 1900)) {
+    if (curr_timeinfo.tm_year < (1970 - 1900)) {
       isSynchronized = false;
       #ifdef DEBUG_MODE  
       Serial.printf("Синхронизация времени не удалась!\n");
@@ -172,7 +172,7 @@ void sntp_notification(struct timeval *tv)
       isSynchronized = true;
       synchronizationTime = millis();
       #ifdef DEBUG_MODE  
-      strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &timeinfo);
+      strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &curr_timeinfo);
       Serial.printf("Синхронизация времени завершена, текущее время: %s\n", strftime_buf);
       #endif
     };
@@ -223,7 +223,7 @@ void setDateTime() {
   #endif
 }
 
-bool initWeb(char** mac_address) {
+bool initWeb(char** mac_address, tm** timeinfo, unsigned long** synchTime) {
   #ifdef DEBUG_MODE
   Serial.println("initWeb");
   #endif
@@ -234,5 +234,7 @@ bool initWeb(char** mac_address) {
     if (!isSynchronized)
       setDateTime();
   *mac_address = MacAddress;
+  *timeinfo = &curr_timeinfo;
+  *synchTime = &synchronizationTime;
   return isReadMac && isWIFIConnect && isSynchronized;
 }

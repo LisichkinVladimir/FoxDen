@@ -15,6 +15,8 @@ static void SenderTask(void *pvParameters) {
   Serial.printf("Инициализация работы с буфером данных\n");
   #endif
   char* mac_address = NULL;
+  tm* timeinfo = NULL;
+  unsigned long* synchTime = NULL;
   Pulse p;
   while(1) {
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -27,7 +29,7 @@ static void SenderTask(void *pvParameters) {
     }
     if (queueSize >= MAX_PULSE_SIZE_WHEN_SEND || (queueSize > 0 && last_queue_access > 0 && millis() - last_queue_access > MAX_PULSE_TIME_WHEN_SEND)) {
       // Подключение к Wifi
-      if (initWeb(&mac_address))
+      if (initWeb(&mac_address, &timeinfo, &synchTime))
       {
         // Самый простой и рекомендуемый способ создать динамический массив
         std::vector<Pulse> pulseArray;
@@ -39,7 +41,7 @@ static void SenderTask(void *pvParameters) {
         }
         // Отправить данные через интернет
         if (pulseArray.size() > 0)
-          sendData2Web(mac_address, pulseArray);
+          sendData2Web(mac_address, timeinfo, synchTime, pulseArray);
       }
     }
   }

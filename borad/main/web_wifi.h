@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <stdlib.h>
+#include <time.h>
 #include <WiFi.h>
 #include <WiFiType.h>
 #include <WiFiSTA.h>
@@ -22,6 +23,6 @@
 #undef SHOW_NETWORKS
 #define CURRENT_TZ TZ_Europe_Moscow
 
-bool initWeb(char** mac_address);
+bool initWeb(char** mac_address, tm** timeinfo, unsigned long** synchTime);
 
 #endif
