@@ -150,7 +150,7 @@ bool connect2Web(char* mac_address) {
   return true;
 }
 
-bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std::vector<Pulse> pulseArray) {
+int data2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std::vector<Pulse> pulseArray) {
   #ifdef DEBUG_MODE  
   Serial.printf("Отправка в Web массива из %d данных для устройства с mac адресом %s\n", pulseArray.size(), mac_address);  
   #endif
@@ -159,21 +159,21 @@ bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std
     #ifdef DEBUG_MODE  
     Serial.print("mac_address == NULL\n");
     #endif
-    return false;
+    return 0;
   }
 
   if (timeinfo == NULL) {
     #ifdef DEBUG_MODE  
     Serial.print("timeinfo == NULL\n");
     #endif
-    return false;
+    return 0;
   }
 
   if (synchTime == NULL) {
     #ifdef DEBUG_MODE  
     Serial.print("synchTime == NULL\n");
     #endif
-    return false;
+    return 0;
   }
 
   int connectAttempt = 0;
@@ -186,7 +186,7 @@ bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std
     #ifdef DEBUG_MODE  
     Serial.print("Ошибка подключения\n");  
     #endif
-    return false;
+    return 0;
   }
 
   // Используя сессионный ключ послать данные SERVER_NAME + "send_device_data"
@@ -197,7 +197,7 @@ bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std
     #ifdef DEBUG_MODE
     Serial.printf("Error begin http connection to %s\n", server.c_str());
     #endif
-    return false;
+    return 0;
   }
   #ifdef DEBUG_MODE
   Serial.printf("Сonnection to %s\n", server.c_str());
@@ -207,6 +207,8 @@ bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std
   http.addHeader("Content-Type", "application/json");
 
   bool is_success = true;
+  //{"changes": [{ "device_id": "1", "moment": "2025-12-07T11:22:48Z" } ] }
+  std::string httpRequestData = "{\"changes\": [";
 
   for (int i = 0; i < pulseArray.size(); i++) {
     // {"device_id": "1", "moment": "2012-04-21T18:25:43Z" }
@@ -221,34 +223,51 @@ bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std
     Serial.printf("Время когда произошло срабатывание геркона: %s\n", buffer);
     #endif
 
-    std::string httpRequestData = "{\"device_id\": \"" + std::to_string(pin_id[pulseArray[i].pin]) + "\", ";
+    httpRequestData = httpRequestData + "{\"device_id\": \"" + std::to_string(pin_id[pulseArray[i].pin]) + "\", ";
     httpRequestData = httpRequestData + "\"moment\": \"" + buffer + "\"}";
-    #ifdef DEBUG_MODE  
-    Serial.printf("httpRequestData: %s\n", httpRequestData.c_str());
-    #endif
-
-    int httpResponseCode = http.POST(httpRequestData.c_str());
-    #ifdef DEBUG_MODE
-    Serial.printf("HTTP from %s code: %d\n", server.c_str(), httpResponseCode);  
-    #endif
-
-    String payload;
-    if (httpResponseCode > 0) {
-      payload = client.readString();
-      #ifdef DEBUG_MODE
-      Serial.printf("Responce: %s\n", payload.c_str());
-      #endif
-    }
-
-    if (httpResponseCode != HTTP_CODE_OK) {
-      #ifdef DEBUG_MODE
-      Serial.print("Error on sending POST\n");
-      #endif
-    }
-    is_success = is_success & httpResponseCode == HTTP_CODE_OK;
+    httpRequestData = httpRequestData + std::string((i == pulseArray.size()-1) ? "" : ", ");
   }
+  httpRequestData = httpRequestData + "] }";
+  #ifdef DEBUG_MODE  
+  Serial.printf("httpRequestData: %s\n", httpRequestData.c_str());
+  #endif
+
+  int httpResponseCode = http.POST(httpRequestData.c_str());
+  #ifdef DEBUG_MODE
+  Serial.printf("HTTP from %s code: %d\n", server.c_str(), httpResponseCode);  
+  #endif
+
+  String payload;
+  if (httpResponseCode > 0) {
+    payload = client.readString();
+    #ifdef DEBUG_MODE
+    Serial.printf("Responce: %s\n", payload.c_str());
+    #endif
+  }
+
+  if (httpResponseCode != HTTP_CODE_OK) {
+    #ifdef DEBUG_MODE
+    Serial.print("Error on sending POST\n");
+    #endif
+  }
+
   client.stop();
   http.end();
 
-  return is_success;
+  return httpResponseCode;
+}
+
+bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std::vector<Pulse> pulseArray) {
+  bool send_success = false;
+  int attempt = 0;
+  do {
+    int httpResponse = data2Web(mac_address, timeinfo, synchTime, pulseArray);
+    if (send_success == HTTP_CODE_OK)
+      send_success = true;
+    else if (send_success == HTTP_CODE_UNAUTHORIZED)
+      attempt++;
+    else
+      break;
+  } while (send_success || attempt < CONNECT_ATTEMPT);
+  return send_success;
 }
