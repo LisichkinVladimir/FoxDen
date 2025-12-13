@@ -11,8 +11,8 @@ volatile long lastQueuePut = 0;
 
 // Процедура подготовки двнных для отправкичерез WiFi на REST сервер
 static void SenderTask(void *pvParameters) {
-  #ifdef DEBUG_MODE  
-  Serial.printf("Инициализация работы с буфером данных\n");
+  #ifdef DEBUG_MODE_BUFFER
+  Serial.print("Инициализация работы с буфером данных\n");
   #endif
   char* mac_address = NULL;
   tm* timeinfo = NULL;
@@ -34,7 +34,7 @@ static void SenderTask(void *pvParameters) {
         // Самый простой и рекомендуемый способ создать динамический массив
         std::vector<Pulse> pulseArray;
         while (xQueueReceive(pulseQueue, &p, PULSE_MAX_DELAY) == pdTRUE) {
-          #ifdef DEBUG_MODE  
+          #ifdef DEBUG_MODE_BUFFER
           Serial.printf("Данные в очереди для pin %d отправляются на Web сервер\n", p.pin);
           #endif
           pulseArray.push_back(p);
@@ -45,7 +45,7 @@ static void SenderTask(void *pvParameters) {
       }
     }
   }
-  #ifdef DEBUG_MODE  
+  #ifdef DEBUG_MODE_BUFFER
   Serial.printf("Ошибочное завершение процесса работы с буфером данных\n");
   #endif
   vTaskDelete(taskHandle);
@@ -55,7 +55,7 @@ void initBuffer(void) {
   if (pulseQueue == NULL) {
     // Создание очереди
     pulseQueue = xQueueCreate(MAX_PULSE_SIZE, sizeof(Pulse));
-    #ifdef DEBUG_MODE  
+    #ifdef DEBUG_MODE_BUFFER
     if (pulseQueue == NULL)
       Serial.printf("ERROR. Ошибка создания очереди\n");
     else
@@ -67,7 +67,7 @@ void initBuffer(void) {
 
     // Запуск задачи с динамическим выделением памяти в куче, с размером стека 4кБ, приоритетом 1
     BaseType_t status = xTaskCreate(SenderTask, "SendTask", 4096, NULL, 1, &taskHandle);
-    #ifdef DEBUG_MODE  
+    #ifdef DEBUG_MODE_BUFFER
     if (status != pdPASS)
       Serial.printf("ERROR. Ошибка создания задания %d\n", status);
     else
@@ -80,7 +80,7 @@ void initBuffer(void) {
 void putData2Buffer(int pin) {
   // Включим светодиод
   turnOnLed();
-  #ifdef DEBUG_MODE  
+  #ifdef DEBUG_MODE_BUFFER
   Serial.printf("Запись в очередь +10 литров pin %d\n", pin);
   #endif
 
@@ -95,7 +95,7 @@ void putData2Buffer(int pin) {
     }
   }
   else {
-    #ifdef DEBUG_MODE  
+    #ifdef DEBUG_MODE_BUFFER
     Serial.printf("ERROR. Ошибка записи в очередь %d pin %d\n", status, pin);
     #endif
   }

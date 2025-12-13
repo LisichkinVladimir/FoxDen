@@ -13,6 +13,11 @@
 #include "pulse_led.h"
 #include "web_wifi.h"
 
+#ifdef DEBUG_MODE
+// Отключим debug mode для buffer
+// #define DEBUG_MODE_BUFFER
+#endif
+
 struct Pulse {
   long time_millis;
   int pin;

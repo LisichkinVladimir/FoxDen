@@ -5,6 +5,7 @@
 #include "Bounce2.h"
 #include "pulse_led.h"
 #include "rest_api.h"
+#include "bluetooth.h"
 
 // Пины к которым подключены устройства
 static uint8_t GPIOPin[PIN_COUNT] = {0}; //{0, 1};
@@ -21,6 +22,8 @@ void setup() {
   initLed();
   // Инициализируем буферы
   initBuffer();
+  // Инициализируем Bluetooth
+  initBluetooth();
   // Инициализируем пины
   for(int i = 0; i < PIN_COUNT; i++) {
     // Каждый вывод имеет нагрузочный резистор (по умолчанию отключен) 20-50 кОм и может пропускать до 40 мА. - включается командой INPUT_PULLUP  
@@ -38,8 +41,8 @@ void loop() {
     #ifdef DEBUG_MODE  
     static int step = 0;
     Serial.printf("GPIOPin%d value=%d step=%d\n", i, val, step++);
-    if (step > 1000)
-      step = 0
+    if (step == 1000)
+      step = 0;
     #endif
     if (bounce[i].update()) {
       val = bounce[i].read();

@@ -15,7 +15,7 @@ bool readMacAddress() {
   sprintf(MacAddress, "%02x:%02x:%02x:%02x:%02x:%02x", 
     uMacAddress[0], uMacAddress[1], uMacAddress[2],
     uMacAddress[3], uMacAddress[4], uMacAddress[5]);
-  for (int i = 0; i < sizeof(MacAddress); ++i) 
+  for (byte i = 0; i < sizeof(MacAddress); ++i) 
     MacAddress[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(MacAddress[i])));
   #ifdef DEBUG_MODE
   Serial.printf("ESP32 MAC Address: %s\n", MacAddress);
@@ -25,7 +25,6 @@ bool readMacAddress() {
 }
 
 unsigned long connectTime = 0;
-unsigned long etime = 0;
 bool isWIFIConnect = false;
 
 void Disconnect(void) {
@@ -64,7 +63,7 @@ void StartConnecting(void) {
       Serial.println("no networks found");
   } else {
     Serial.printf("Networks found %d\n", n);
-    for (int i = 0; i < n; ++i) {
+    for(byte i = 0; i < n; ++i) {
       Serial.printf("wifi(%d): %s\n", i, WiFi.SSID(i));
     }
   }
@@ -122,7 +121,8 @@ void waitConnecting() {
   // Инициализация подключения по WiFi
   StartConnecting();
   #ifdef DEBUG_MODE
-  int step = 1; 
+  unsigned long etime = 0;
+  int step = 1;
   #endif
   do {
     vTaskDelay(pdMS_TO_TICKS(1500));
@@ -149,7 +149,6 @@ void waitConnecting() {
   }
 }
 
-unsigned long synchronizationStart = 0;
 unsigned long synchronizationTime = 0;
 bool isSynchronized = false;
 bool sntpFinish = false;
@@ -189,7 +188,7 @@ void setDateTime() {
   setenv("TZ", CURRENT_TZ, 1);
   tzset();
   sntpFinish = false;
-  synchronizationStart = millis();
+  unsigned long synchronizationStart = millis();
   // Создание семафора
   synchronizationMutex = xSemaphoreCreateBinary();
   // Запускаем синхронизацию времени по SNTP протоколу
