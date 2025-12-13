@@ -227,19 +227,36 @@ def connect_device():
 @jwt_required()
 def add_device_changes():
     """ Запись об изменении показания устройства """
-    device_id = None
-    moment = None
+    changes = None
     mac_address = get_jwt_identity()
 
     if request.is_json:
         data = request.get_json()
-        device_id = data.get('device_id')
-        moment = data.get('moment')
     else:
-        device_id = request.args.get('device_id')
-        moment = request.args.get('moment')
+        data = request.args
 
-    if device_id is None or moment is None:
+    if 'changes' not in data:
+        if 'device_id' in data and 'moment' in data:
+            changes = [
+                {
+                    'device_id': data.get('device_id'),
+                    'moment': data.get('moment')
+                }
+            ]
+    else:
+        change_list = data.get('changes')
+        if isinstance(change_list, list):
+            changes = []
+            for change in change_list:
+                if 'device_id' in change and 'moment' in change:
+                    changes.append(
+                        {
+                            'device_id': change.get('device_id'),
+                            'moment': change.get('moment')
+                        }
+                    )
+
+    if changes is None or not changes:
         return json_error(400, "Missing required parameters: device_id and moment"), 400
 
     connect = connect_database()
@@ -249,17 +266,17 @@ def add_device_changes():
     try:
         query = text("call public.add_device_changes(:mac_address, :device_id, :moment)")
         with connect.begin():
-            connect.execute(query, {
-                "mac_address": mac_address,
-                "device_id": device_id,
-                "moment": moment
-            })
+            for change in changes:
+                connect.execute(query, {
+                    "mac_address": mac_address,
+                    "device_id": change.get('device_id'),
+                    "moment": change.get('moment')
+                })
 
         result_data = {
             "error": {},
             "result": {
-                "success": True,
-                "device_id": device_id
+                "success": True
             }
         }
         return jsonify(result_data)

@@ -6,7 +6,7 @@ create table devices
 	pin             integer not null,       -- Пин устройства
 	serial_number   varchar(100) not null,  -- Серийный номер устройства
 	scale_unit_id   integer not null,       -- Единица измерения шкалы
-	step_increment  integer not null,       -- Шаг увеличения
+	step_increment  numeric(8, 3),          -- Шаг увеличения
 	indicator       numeric(8, 3),          -- Текущее значение счетчика
 	user_id         integer not null,       -- Пользователь счетчика
 	state           bool not null,          -- Статус (удален не удален)

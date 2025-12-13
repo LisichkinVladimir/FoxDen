@@ -20,5 +20,9 @@ begin
     end if;
 	insert into public.device_changes (device_id, moment)
 	values (p_device_id, p_moment);
+	------------
+	update public.devices set
+		"indicator" = "indicator" + "step_increment"
+	where id = v_id;
 end;
 $$ language plpgsql SECURITY DEFINER;

@@ -15,7 +15,7 @@ bool readMacAddress() {
   sprintf(MacAddress, "%02x:%02x:%02x:%02x:%02x:%02x", 
     uMacAddress[0], uMacAddress[1], uMacAddress[2],
     uMacAddress[3], uMacAddress[4], uMacAddress[5]);
-  for (int i = 0; i < sizeof(MacAddress); ++i) 
+  for (byte i = 0; i < sizeof(MacAddress); ++i) 
     MacAddress[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(MacAddress[i])));
   #ifdef DEBUG_MODE
   Serial.printf("ESP32 MAC Address: %s\n", MacAddress);
@@ -25,7 +25,6 @@ bool readMacAddress() {
 }
 
 unsigned long connectTime = 0;
-unsigned long etime = 0;
 bool isWIFIConnect = false;
 
 void Disconnect(void) {
@@ -64,7 +63,7 @@ void StartConnecting(void) {
       Serial.println("no networks found");
   } else {
     Serial.printf("Networks found %d\n", n);
-    for (int i = 0; i < n; ++i) {
+    for(byte i = 0; i < n; ++i) {
       Serial.printf("wifi(%d): %s\n", i, WiFi.SSID(i));
     }
   }
@@ -122,7 +121,8 @@ void waitConnecting() {
   // Инициализация подключения по WiFi
   StartConnecting();
   #ifdef DEBUG_MODE
-  int step = 1; 
+  unsigned long etime = 0;
+  int step = 1;
   #endif
   do {
     vTaskDelay(pdMS_TO_TICKS(1500));
@@ -149,19 +149,18 @@ void waitConnecting() {
   }
 }
 
-unsigned long synchronizationStart = 0;
 unsigned long synchronizationTime = 0;
 bool isSynchronized = false;
 bool sntpFinish = false;
 SemaphoreHandle_t synchronizationMutex;
+struct tm curr_timeinfo;
 
 void sntp_notification(struct timeval *tv)
 {
-  struct tm timeinfo;
   char strftime_buf[20] = {0};
-  localtime_r(&tv->tv_sec, &timeinfo);
+  localtime_r(&tv->tv_sec, &curr_timeinfo);
   if (xSemaphoreTake(synchronizationMutex, 200) == pdTRUE) {
-    if (timeinfo.tm_year < (1970 - 1900)) {
+    if (curr_timeinfo.tm_year < (1970 - 1900)) {
       isSynchronized = false;
       #ifdef DEBUG_MODE  
       Serial.printf("Синхронизация времени не удалась!\n");
@@ -172,7 +171,7 @@ void sntp_notification(struct timeval *tv)
       isSynchronized = true;
       synchronizationTime = millis();
       #ifdef DEBUG_MODE  
-      strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &timeinfo);
+      strftime(strftime_buf, sizeof(strftime_buf), "%d.%m.%Y %H:%M:%S", &curr_timeinfo);
       Serial.printf("Синхронизация времени завершена, текущее время: %s\n", strftime_buf);
       #endif
     };
@@ -189,7 +188,7 @@ void setDateTime() {
   setenv("TZ", CURRENT_TZ, 1);
   tzset();
   sntpFinish = false;
-  synchronizationStart = millis();
+  unsigned long synchronizationStart = millis();
   // Создание семафора
   synchronizationMutex = xSemaphoreCreateBinary();
   // Запускаем синхронизацию времени по SNTP протоколу
@@ -223,7 +222,7 @@ void setDateTime() {
   #endif
 }
 
-bool initWeb(char** mac_address) {
+bool initWeb(char** mac_address, tm** timeinfo, unsigned long** synchTime) {
   #ifdef DEBUG_MODE
   Serial.println("initWeb");
   #endif
@@ -234,5 +233,7 @@ bool initWeb(char** mac_address) {
     if (!isSynchronized)
       setDateTime();
   *mac_address = MacAddress;
+  *timeinfo = &curr_timeinfo;
+  *synchTime = &synchronizationTime;
   return isReadMac && isWIFIConnect && isSynchronized;
 }
