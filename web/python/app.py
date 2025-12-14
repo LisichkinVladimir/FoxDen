@@ -88,29 +88,130 @@ def dashboard():
     try:
         # Получаем список всех счетчиков
         query = text("select * from public.get_devices(:user_id)")
-
         result = connect.execute(query, {"user_id": session['userid']})
         devices = result.fetchall()
 
-        # Получаем последние показания для каждого счетчика
-        # """ TODO
-        # device_readings = {}
-        # for device in devices:
-        #     query = text("""
-        #         SELECT moment, indicator_value 
-        #         FROM public.device_readings 
-        #         WHERE device_id = :device_id 
-        #         ORDER BY moment DESC 
-        #         LIMIT 10
-        #     """)
-        #     readings_result = connect.execute(query, {"device_id": device.id})
-        #     device_readings[device.id] = readings_result.fetchall()
-        # """
+        # Подготавливаем данные для шаблона
+        devices_data = []
+        
+        for device in devices:
+            device_id = device[0] if len(device) > 0 else None
+            step_increment = float(device[6]) if len(device) > 6 and device[6] is not None else 10.0
+            current_value = float(device[7]) if len(device) > 7 and device[7] is not None else 0.0
+            
+            # Получаем изменения для графиков
+            cumulative_labels = []
+            cumulative_values = []
+            daily_labels = []
+            daily_values = []
+            monthly_labels = []
+            monthly_values = []
+            total_changes = 0
+            
+            try:
+                query_changes = text("""
+                    SELECT moment 
+                    FROM public.device_changes 
+                    WHERE device_id = :device_id 
+                    ORDER BY moment ASC
+                """)
+                changes_result = connect.execute(query_changes, {"device_id": device_id})
+                changes = changes_result.fetchall()
+                total_changes = len(changes)
+                
+                if changes:
+                    # 1. НАКОПИТЕЛЬНЫЙ ГРАФИК
+                    initial_value = current_value - (total_changes * step_increment)
+                    cumulative = initial_value
+                    
+                    # Берем последние 15 изменений для читаемости
+                    recent_changes = changes[-15:] if len(changes) > 15 else changes
+                    
+                    for i, change in enumerate(recent_changes):
+                        if len(recent_changes) <= 8:
+                            label = change.moment.strftime('%H:%M') if hasattr(change, 'moment') and change.moment else f'Точка {i+1}'
+                        else:
+                            if i % 3 == 0 or i == len(recent_changes) - 1:
+                                label = f'Т {i+1}'
+                            else:
+                                label = ''
+                        
+                        cumulative += step_increment
+                        cumulative_labels.append(label)
+                        cumulative_values.append(round(cumulative, 3))
+                    
+                    # 2. ГРАФИК ПО ДНЯМ (последние 30 дней)
+                    daily_counts = {}
+                    for change in changes:
+                        if hasattr(change, 'moment') and change.moment:
+                            day_key = change.moment.strftime('%d.%m')
+                            daily_counts[day_key] = daily_counts.get(day_key, 0) + 1
+                    
+                    # Берем последние 14 дней для графика
+                    daily_items = list(daily_counts.items())[-14:]
+                    for day, count in daily_items:
+                        daily_labels.append(day)
+                        daily_values.append(count * step_increment)
+                    
+                    # 3. ГРАФИК ПО МЕСЯЦАМ (последние 12 месяцев)
+                    monthly_counts = {}
+                    for change in changes:
+                        if hasattr(change, 'moment') and change.moment:
+                            month_key = change.moment.strftime('%Y-%m')
+                            monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
+                    
+                    # Берем все месяцы с изменениями
+                    for month, count in monthly_counts.items():
+                        # Форматируем месяц
+                        try:
+                            date_obj = datetime.strptime(month, '%Y-%m')
+                            month_label = date_obj.strftime('%b %Y')
+                        except:
+                            month_label = month
+                        monthly_labels.append(month_label)
+                        monthly_values.append(count * step_increment)
+                    
+                    # Если мало данных, добавляем текущий месяц
+                    if not monthly_labels:
+                        current_month = datetime.now().strftime('%b %Y')
+                        monthly_labels.append(current_month)
+                        monthly_values.append(0)
+                
+            except Exception as e:
+                logging.warning(f"No access to device_changes for device {device_id}: {e}")
+                # Если нет доступа, показываем пустые графики
+                cumulative_labels = ['Нет доступа']
+                cumulative_values = [current_value]
+                daily_labels = ['Нет данных']
+                daily_values = [0]
+                monthly_labels = ['Нет данных']
+                monthly_values = [0]
+            
+            # Формируем данные устройства
+            device_data = {
+                'id': device_id,
+                'type_id': device[1] if len(device) > 1 else None,
+                'pin': device[3] if len(device) > 3 else None,
+                'serial_number': device[4] if len(device) > 4 else 'Без номера',
+                'scale_unit_id': device[5] if len(device) > 5 else None,
+                'step_increment': step_increment,
+                'indicator': current_value,
+                'state': bool(device[9]) if len(device) > 9 else False,
+                'total_changes': total_changes,
+                'cumulative_labels': cumulative_labels,
+                'cumulative_values': cumulative_values,
+                'daily_labels': daily_labels,
+                'daily_values': daily_values,
+                'monthly_labels': monthly_labels,
+                'monthly_values': monthly_values
+            }
+            
+            devices_data.append(device_data)
+
         return render_template(
             'dashboard.html', 
             username=session['username'],
-            devices=devices,
-            #device_readings=device_readings,
+            devices=devices_data,
             current_time=datetime.now()
         )
 
@@ -121,6 +222,48 @@ def dashboard():
         if connect:
             close_connection(connect)
 
+
+def prepare_chart_data(changes, step_increment, current_value):
+    """ Подготовка данных для графика """
+    if not changes:
+        return {
+            'time_labels': ['Нет данных'],
+            'values': [current_value],
+            'has_data': False
+        }
+    
+    time_labels = []
+    cumulative_values = []
+    
+    # Начинаем с начального значения
+    initial_value = current_value - (len(changes) * step_increment)
+    cumulative = initial_value
+    
+    # Берем только последние 20 изменений для читаемости графика
+    recent_changes = changes[-20:] if len(changes) > 20 else changes
+    
+    for i, change in enumerate(recent_changes):
+        if hasattr(change, 'moment') and change.moment:
+            # Форматируем дату для подписи
+            if len(recent_changes) <= 10:
+                label = change.moment.strftime('%d.%m %H:%M')
+            else:
+                # Если много точек, показываем только каждую 3-ю
+                if i % 3 == 0 or i == len(recent_changes) - 1:
+                    label = change.moment.strftime('%d.%m')
+                else:
+                    label = ''
+            
+            cumulative += step_increment
+            time_labels.append(label)
+            cumulative_values.append(float(cumulative))
+    
+    return {
+        'time_labels': time_labels,
+        'values': cumulative_values,
+        'initial_value': float(initial_value),
+        'has_data': True
+    }
 # @app.route('/api/device_readings')
 # def get_device_readings():
 #     """ API для получения показаний конкретного счетчика """
