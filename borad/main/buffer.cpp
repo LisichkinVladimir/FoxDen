@@ -40,8 +40,10 @@ static void SenderTask(void *pvParameters) {
           pulseArray.push_back(p);
         }
         // Отправить данные через интернет
-        if (pulseArray.size() > 0)
+        if (pulseArray.size() > 0) {
           sendData2Web(mac_address, timeinfo, synchTime, pulseArray);
+          Disconnect();
+        }
       }
     }
   }
@@ -80,7 +82,7 @@ void initBuffer(void) {
 void putData2Buffer(int pin) {
   // Включим светодиод
   turnOnLed();
-  #ifdef DEBUG_MODE_BUFFER
+  #ifdef DEBUG_MODE
   Serial.printf("Запись в очередь +10 литров pin %d\n", pin);
   #endif
 

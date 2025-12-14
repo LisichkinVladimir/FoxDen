@@ -24,5 +24,6 @@
 #define CURRENT_TZ TZ_Europe_Moscow
 
 bool initWeb(char** mac_address, tm** timeinfo, unsigned long** synchTime);
+void Disconnect(void);
 
 #endif
