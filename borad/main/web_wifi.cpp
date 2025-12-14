@@ -68,7 +68,7 @@ void StartConnecting(void) {
     }
   }
   #endif
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.begin(WIFI_SSID.c_str(), WIFI_PASSWORD.c_str());
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
   #ifdef DEBUG_MODE  
   Serial.printf("Ожидание подключения\n");

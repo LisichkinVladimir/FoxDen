@@ -225,11 +225,12 @@ int data2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std::vec
     Serial.printf("Время когда произошло срабатывание геркона: %s\n", buffer);
     #endif
 
-    httpRequestData = httpRequestData + "{\"device_id\": \"" + std::to_string(pin_id[pulseArray[i].pin]) + "\", ";
-    httpRequestData = httpRequestData + "\"moment\": \"" + buffer + "\"}";
-    httpRequestData = httpRequestData + std::string((i == pulseArray.size()-1) ? "" : ", ");
+    httpRequestData += "{\"device_id\": \"" + std::to_string(pin_id[pulseArray[i].pin]) + "\", ";
+    httpRequestData += "\"moment\": \"" + std::string(buffer) + "\"}";
+    if (i < pulseArray.size()-1)
+      httpRequestData += ", ";
   }
-  httpRequestData = httpRequestData + "] }";
+  httpRequestData += "] }";
   #ifdef DEBUG_MODE  
   Serial.printf("httpRequestData: %s\n", httpRequestData.c_str());
   #endif

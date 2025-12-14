@@ -38,7 +38,7 @@ void loop() {
   delay(1000);
   for(int i = 0; i < PIN_COUNT; i++) {
     int val = digitalRead(GPIOPin[i]);
-    #ifdef DEBUG_MODE  
+    #ifdef DEBUG_MODE_MAIN
     static int step = 0;
     Serial.printf("GPIOPin%d value=%d step=%d\n", i, val, step++);
     if (step == 1000)
@@ -56,6 +56,7 @@ void loop() {
   }
   // Выключим светодиод после задержки, если он был включен
   turnOffLed(DELAY);
+
   /*char* mac_address = NULL;
   tm* timeinfo = NULL;
   unsigned long* synchTime = NULL;
@@ -68,4 +69,6 @@ void loop() {
     }
     Serial.print("NEW loop\n");
   }*/
+
+  //checkBluetoothConnected();
 }
