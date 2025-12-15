@@ -1,20 +1,38 @@
-import bluetooth
+import asyncio
+from bleak import BleakScanner, BleakClient
 
-def scan_bluetooth_devices():
+async def scan_for_devices():
+    """Scans for nearby Bluetooth LE devices."""
+    print("Scanning for 5 seconds...")
+    devices = await BleakScanner.discover()
+    print("Scan complete. Devices found:")
+    for device in devices:
+        print(f"Address: {device.address}, Name: {device.name}")
+        if device.name == 'FoxDen Bluetooth':
+            await connect_and_read(device.address)
+            break
+
+WIFI_SSID_CHARACTERISTIC_UUID = "feb5483e-36e1-4688-b7f5-ea07361b26a8"
+WIFI_PASSWORD_CHARACTERISTIC_UUID = "6908c973-cf32-4b0b-bbb5-65bcdf79f94b"
+
+async def connect_and_read(address):
+    """Connects to a BLE device and reads a specific characteristic."""
     try:
-        # Discover Bluetooth devices with names and classes.
-        discovered_devices = bluetooth.discover_devices(lookup_names=True, lookup_class=True)
-        # Display information about the scanning process.
-        print('[!] Scanning for active devices...')
-        print(f"[!] Found {len(discovered_devices)} Devices\n")
-        # Iterate through discovered devices and print their details.
-        for addr, name, device_class in discovered_devices:
-            print(f'[+] Name: {name}')
-            print(f'[+] Address: {addr}')
-            print(f'[+] Device Class: {device_class}\n')
-    except Exception as e:
-        # Handle and display any exceptions that occur during device discovery
-        print(f"[ERROR] An error occurred: {e}")
+        # Use async with for automatic connection and disconnection
+        async with BleakClient(address) as client:
+            print(f"Connected to {address}: {client.is_connected}")
 
-# Call the Bluetooth device scanning function when the script is run
-scan_bluetooth_devices()
+            wifi_ssid = await client.read_gatt_char(WIFI_SSID_CHARACTERISTIC_UUID)
+            wifi_ssid_str = ''.join(map(chr, wifi_ssid))
+            print(f"WIFI SSID: {wifi_ssid_str}")
+
+            wifi_password = await client.read_gatt_char(WIFI_PASSWORD_CHARACTERISTIC_UUID)
+            wifi_password_str = ''.join(map(chr, wifi_password))
+            print(f"WIFI Password: {wifi_password_str}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    # Call the Bluetooth device scanning function when the script is run
+    asyncio.run(scan_for_devices())

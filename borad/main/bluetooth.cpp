@@ -120,14 +120,14 @@ class DescriptorCallbacks : public NimBLEDescriptorCallbacks {
     }
 
     void onRead(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
-        Serial.printf("%s Descriptor read\n", pDescriptor->getUUID().toString().c_str());
+        Serial.printf("%s Descriptor read %s\n", pDescriptor->getUUID().toString().c_str(), pDescriptor->getValue().c_str());
     }
 } dscCallbacks; 
 
 void initBluetooth(void) {
     Serial.printf("Запуск Bluetooth Server\n");
 
-    NimBLEDevice::init("FoxDenBluetooth");
+    NimBLEDevice::init(BLUETOOTH_SERVER_NAME);
 
     /**
      * Set the IO capabilities of the device, each option will trigger a different pairing method.
@@ -151,35 +151,35 @@ void initBluetooth(void) {
     pServer->setCallbacks(&serverCallbacks);
 
     NimBLEService*        pService = pServer->createService(SERVICE_UUID);
-    NimBLECharacteristic* pBeefCharacteristic =
-        pService->createCharacteristic(CHARACTERISTIC_UUID,
-                                           NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY 
+    NimBLECharacteristic* pWifiSSIDCharacteristic =
+        pService->createCharacteristic(WIFI_SSID_CHARACTERISTIC_UUID,
+                                           NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE //| NIMBLE_PROPERTY::NOTIFY 
                                                /** Require a secure connection for read and write access */
                                                //NIMBLE_PROPERTY::READ_ENC | // only allow reading if paired / encrypted
                                                //NIMBLE_PROPERTY::WRITE_ENC  // only allow writing if paired / encrypted
         );
 
-    pBeefCharacteristic->setValue("Burger");
-    pBeefCharacteristic->setCallbacks(&chrCallbacks);
+    pWifiSSIDCharacteristic->setValue(WIFI_SSID.c_str());
+    pWifiSSIDCharacteristic->setCallbacks(&chrCallbacks);
 
-    /**
-     *  2902 and 2904 descriptors are a special case, when createDescriptor is called with
-     *  either of those uuid's it will create the associated class with the correct properties
-     *  and sizes. However we must cast the returned reference to the correct type as the method
-     *  only returns a pointer to the base NimBLEDescriptor class.
-     */
-    NimBLE2904* pBeef2904 = pBeefCharacteristic->create2904();
-    pBeef2904->setFormat(NimBLE2904::FORMAT_UTF8);
-    pBeef2904->setCallbacks(&dscCallbacks);
+    NimBLEDescriptor* pWiFiSSIDDescription = pWifiSSIDCharacteristic->createDescriptor(BLEUUID((uint16_t)0x2901));
+    pWiFiSSIDDescription->setValue("WIFI SSID");
+    //pDescription->setCallbacks(&dscCallbacks);
 
+    ////////////////////////////////////////////////////
+    NimBLECharacteristic* pWifiPasswordCharacteristic =
+        pService->createCharacteristic(WIFI_PASSWORD_CHARACTERISTIC_UUID,
+                                           NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE
+                                               /** Require a secure connection for read and write access */
+                                               //NIMBLE_PROPERTY::READ_ENC | // only allow reading if paired / encrypted
+                                               //NIMBLE_PROPERTY::WRITE_ENC  // only allow writing if paired / encrypted
+        );
 
-    /** Custom descriptor: Arguments are UUID, Properties, max length of the value in bytes */
-    NimBLEDescriptor* pC01Ddsc =
-        pBeefCharacteristic->createDescriptor("C01D",
-                                              NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_ENC,
-                                              20);
-    pC01Ddsc->setValue("Send it back!");
-    pC01Ddsc->setCallbacks(&dscCallbacks);
+    pWifiPasswordCharacteristic->setValue(WIFI_PASSWORD.c_str());
+    pWifiPasswordCharacteristic->setCallbacks(&chrCallbacks);
+
+    NimBLEDescriptor* pWiFiPasswordDescription = pWifiPasswordCharacteristic->createDescriptor(BLEUUID((uint16_t)0x2901));
+    pWiFiPasswordDescription->setValue("WIFI Password");
 
     /** Start the services when finished creating all Characteristics and Descriptors */
     pService->start();
@@ -196,19 +196,4 @@ void initBluetooth(void) {
     pAdvertising->start();
 
     Serial.printf("Advertising Started\n"); 
-}
-
-void checkBluetoothConnected(void) {
-    if (pServer->getConnectedCount()) {
-        if (!BluetoothConnected)
-          Serial.print("loop server connected\n");
-        BluetoothConnected = true;
-        /*NimBLEService* pSvc = pServer->getServiceByUUID(SERVICE_UUID);
-        if (pSvc) {
-            NimBLECharacteristic* pChr = pSvc->getCharacteristic(CHARACTERISTIC_UUID);
-            if (pChr) {
-                pChr->notify();
-            }
-        }*/
-    }   
 }

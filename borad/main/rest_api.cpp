@@ -265,12 +265,16 @@ bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std
   int attempt = 0;
   do {
     int httpResponse = data2Web(mac_address, timeinfo, synchTime, pulseArray);
-    if (send_success == HTTP_CODE_OK)
+    if (httpResponse == HTTP_CODE_OK)
       send_success = true;
-    else if (send_success == HTTP_CODE_UNAUTHORIZED)
+    else if (httpResponse == HTTP_CODE_UNAUTHORIZED) {
       attempt++;
-    else
+      #ifdef DEBUG_MODE
+      Serial.print("UNAUTHORIZED error - try get new session key\n");
+      #endif
+      connect2Web(mac_address);
+    } else
       break;
-  } while (send_success || attempt < CONNECT_ATTEMPT);
+  } while (!send_success && attempt < CONNECT_ATTEMPT);
   return send_success;
 }
