@@ -3,8 +3,8 @@ from bleak import BleakScanner, BleakClient
 
 async def scan_for_devices():
     """Scans for nearby Bluetooth LE devices."""
-    print("Scanning for 5 seconds...")
-    devices = await BleakScanner.discover()
+    print("Scanning for 20 seconds...")
+    devices = await BleakScanner.discover(20)
     print("Scan complete. Devices found:")
     for device in devices:
         print(f"Address: {device.address}, Name: {device.name}")
@@ -14,6 +14,25 @@ async def scan_for_devices():
 
 WIFI_SSID_CHARACTERISTIC_UUID = "feb5483e-36e1-4688-b7f5-ea07361b26a8"
 WIFI_PASSWORD_CHARACTERISTIC_UUID = "6908c973-cf32-4b0b-bbb5-65bcdf79f94b"
+SERVER_NAME_UUID = "3c7925e8-badf-4d38-aab6-5e930db08008"
+
+Characteristics = [
+    {
+        'uuid': WIFI_SSID_CHARACTERISTIC_UUID,
+        'name': 'WIFI SSID',
+        'value': None
+    },
+    {
+        'uuid': WIFI_PASSWORD_CHARACTERISTIC_UUID,
+        'name': 'WIFI Password',
+        'value': None
+    },
+    {
+        'uuid': SERVER_NAME_UUID,
+        'name': 'Web server name',
+        'value': None
+    }
+]
 
 async def connect_and_read(address):
     """Connects to a BLE device and reads a specific characteristic."""
@@ -22,13 +41,11 @@ async def connect_and_read(address):
         async with BleakClient(address) as client:
             print(f"Connected to {address}: {client.is_connected}")
 
-            wifi_ssid = await client.read_gatt_char(WIFI_SSID_CHARACTERISTIC_UUID)
-            wifi_ssid_str = ''.join(map(chr, wifi_ssid))
-            print(f"WIFI SSID: {wifi_ssid_str}")
-
-            wifi_password = await client.read_gatt_char(WIFI_PASSWORD_CHARACTERISTIC_UUID)
-            wifi_password_str = ''.join(map(chr, wifi_password))
-            print(f"WIFI Password: {wifi_password_str}")
+            for characteristic_info in Characteristics:
+                characteristic = await client.read_gatt_char(characteristic_info['uuid'])
+                characteristic_str = ''.join(map(chr, characteristic))
+                print(f"{characteristic_info['name']}: {characteristic_str}")
+                characteristic_info['value'] = characteristic_str
 
     except Exception as e:
         print(f"An error occurred: {e}")

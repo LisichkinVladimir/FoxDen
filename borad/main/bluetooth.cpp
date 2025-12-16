@@ -82,6 +82,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
         Serial.printf("%s : onWrite(), value: %s\n",
                       pCharacteristic->getUUID().toString().c_str(),
                       pCharacteristic->getValue().c_str());
+        FBLECharacteristics::setValue(pCharacteristic->getUUID().toString(), pCharacteristic->getValue());
     }
 
     /**
@@ -150,36 +151,23 @@ void initBluetooth(void) {
     pServer = NimBLEDevice::createServer();
     pServer->setCallbacks(&serverCallbacks);
 
-    NimBLEService*        pService = pServer->createService(SERVICE_UUID);
-    NimBLECharacteristic* pWifiSSIDCharacteristic =
-        pService->createCharacteristic(WIFI_SSID_CHARACTERISTIC_UUID,
-                                           NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE //| NIMBLE_PROPERTY::NOTIFY 
-                                               /** Require a secure connection for read and write access */
-                                               //NIMBLE_PROPERTY::READ_ENC | // only allow reading if paired / encrypted
-                                               //NIMBLE_PROPERTY::WRITE_ENC  // only allow writing if paired / encrypted
-        );
+    NimBLEService* pService = pServer->createService(SERVICE_UUID);
 
-    pWifiSSIDCharacteristic->setValue(WIFI_SSID.c_str());
-    pWifiSSIDCharacteristic->setCallbacks(&chrCallbacks);
+    FBLECharacteristics vCharacteristics = {
+        { WIFI_SSID_CHARACTERISTIC_UUID, "WIFI SSID" },
+        { WIFI_PASSWORD_CHARACTERISTIC_UUID, "WIFI Password"},
+        { SERVER_NAME_UUID, "Web server name"}
+    };
 
-    NimBLEDescriptor* pWiFiSSIDDescription = pWifiSSIDCharacteristic->createDescriptor(BLEUUID((uint16_t)0x2901));
-    pWiFiSSIDDescription->setValue("WIFI SSID");
-    //pDescription->setCallbacks(&dscCallbacks);
-
-    ////////////////////////////////////////////////////
-    NimBLECharacteristic* pWifiPasswordCharacteristic =
-        pService->createCharacteristic(WIFI_PASSWORD_CHARACTERISTIC_UUID,
-                                           NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE
-                                               /** Require a secure connection for read and write access */
-                                               //NIMBLE_PROPERTY::READ_ENC | // only allow reading if paired / encrypted
-                                               //NIMBLE_PROPERTY::WRITE_ENC  // only allow writing if paired / encrypted
-        );
-
-    pWifiPasswordCharacteristic->setValue(WIFI_PASSWORD.c_str());
-    pWifiPasswordCharacteristic->setCallbacks(&chrCallbacks);
-
-    NimBLEDescriptor* pWiFiPasswordDescription = pWifiPasswordCharacteristic->createDescriptor(BLEUUID((uint16_t)0x2901));
-    pWiFiPasswordDescription->setValue("WIFI Password");
+    for (byte i = 0; i < vCharacteristics.size(); ++i) {
+      FBLECharacteristic& characteristic = vCharacteristics[i];
+      NimBLECharacteristic* pCharacteristic = pService->createCharacteristic(characteristic.uuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
+      pCharacteristic->setValue(FBLECharacteristics::getValue(characteristic.uuid));
+      pCharacteristic->setCallbacks(&chrCallbacks);
+      NimBLEDescriptor* pDescription = pCharacteristic->createDescriptor(BLEUUID((uint16_t)0x2901));
+      pDescription->setValue(characteristic.description.c_str());
+      //pDescription->setCallbacks(&chrCallbacks);
+    }
 
     /** Start the services when finished creating all Characteristics and Descriptors */
     pService->start();
