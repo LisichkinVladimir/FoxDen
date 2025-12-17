@@ -1,4 +1,5 @@
 #include "bluetooth.h"
+#include "preference.h"
 
 static NimBLEServer* pServer;
 bool BluetoothConnected = false;
@@ -72,61 +73,76 @@ class ServerCallbacks : public NimBLEServerCallbacks {
 
 /** Handler class for characteristic actions */
 class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
-    void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
-        Serial.printf("%s : onRead(), value: %s\n",
-                      pCharacteristic->getUUID().toString().c_str(),
-                      pCharacteristic->getValue().c_str());
-    }
+  void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
+    #ifdef DEBUG_MODE
+    Serial.printf("%s : onRead(), value: %s\n",
+                  pCharacteristic->getUUID().toString().c_str(),
+                  pCharacteristic->getValue().c_str());
+    #endif  
+  }
 
-    void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
-        Serial.printf("%s : onWrite(), value: %s\n",
-                      pCharacteristic->getUUID().toString().c_str(),
-                      pCharacteristic->getValue().c_str());
-        FBLECharacteristics::setValue(pCharacteristic->getUUID().toString(), pCharacteristic->getValue());
-    }
+  void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
+    std::string uuid = pCharacteristic->getUUID().toString();
+    std::string value = pCharacteristic->getValue();
+    #ifdef DEBUG_MODE
+    Serial.printf("%s : onWrite(), value: %s\n", uuid.c_str(), value.c_str());
+    #endif  
+    FBLECharacteristics::setValue(uuid, value);
+    setPreference(FBLECharacteristics::getName(uuid), value);
+  }
 
-    /**
-     *  The value returned in code is the NimBLE host return code.
-     */
-    void onStatus(NimBLECharacteristic* pCharacteristic, int code) override {
-        Serial.printf("Notification/Indication return code: %d, %s\n", code, NimBLEUtils::returnCodeToString(code));
-    }
+  /**
+    *  The value returned in code is the NimBLE host return code.
+    */
+  void onStatus(NimBLECharacteristic* pCharacteristic, int code) override {
+    #ifdef DEBUG_MODE
+    Serial.printf("Notification/Indication return code: %d, %s\n", code, NimBLEUtils::returnCodeToString(code));
+    #endif  
+  }
 
-    /** Peer subscribed to notifications/indications */
-    void onSubscribe(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo, uint16_t subValue) override {
-        std::string str  = "Client ID: ";
-        str             += connInfo.getConnHandle();
-        str             += " Address: ";
-        str             += connInfo.getAddress().toString();
-        if (subValue == 0) {
-            str += " Unsubscribed to ";
-        } else if (subValue == 1) {
-            str += " Subscribed to notifications for ";
-        } else if (subValue == 2) {
-            str += " Subscribed to indications for ";
-        } else if (subValue == 3) {
-            str += " Subscribed to notifications and indications for ";
-        }
-        str += std::string(pCharacteristic->getUUID());
-
-        Serial.printf("%s\n", str.c_str());
+  /** Peer subscribed to notifications/indications */
+  void onSubscribe(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo, uint16_t subValue) override {
+    #ifdef DEBUG_MODE
+    std::string str  = "Client ID: ";
+    str             += connInfo.getConnHandle();
+    str             += " Address: ";
+    str             += connInfo.getAddress().toString();
+    if (subValue == 0) {
+        str += " Unsubscribed to ";
+    } else if (subValue == 1) {
+        str += " Subscribed to notifications for ";
+    } else if (subValue == 2) {
+        str += " Subscribed to indications for ";
+    } else if (subValue == 3) {
+        str += " Subscribed to notifications and indications for ";
     }
+    str += std::string(pCharacteristic->getUUID());
+
+    Serial.printf("%s\n", str.c_str());
+    #endif
+  }
 } chrCallbacks;
 
 /** Handler class for descriptor actions */
 class DescriptorCallbacks : public NimBLEDescriptorCallbacks {
-    void onWrite(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
-        std::string dscVal = pDescriptor->getValue();
-        Serial.printf("Descriptor written value: %s\n", dscVal.c_str());
-    }
+  void onWrite(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
+    #ifdef DEBUG_MODE
+    std::string dscVal = pDescriptor->getValue();
+    Serial.printf("Descriptor written value: %s\n", dscVal.c_str());
+    #endif
+  }
 
-    void onRead(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
-        Serial.printf("%s Descriptor read %s\n", pDescriptor->getUUID().toString().c_str(), pDescriptor->getValue().c_str());
-    }
+  void onRead(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
+    #ifdef DEBUG_MODE
+    Serial.printf("%s Descriptor read %s\n", pDescriptor->getUUID().toString().c_str(), pDescriptor->getValue().c_str());
+    #endif
+  }
 } dscCallbacks; 
 
 void initBluetooth(void) {
+    #ifdef DEBUG_MODE
     Serial.printf("Запуск Bluetooth Server\n");
+    #endif
 
     NimBLEDevice::init(BLUETOOTH_SERVER_NAME);
 
@@ -183,5 +199,7 @@ void initBluetooth(void) {
     pAdvertising->enableScanResponse(true);
     pAdvertising->start();
 
-    Serial.printf("Advertising Started\n"); 
+    #ifdef DEBUG_MODE
+    Serial.printf("Advertising Started\n");
+    #endif
 }

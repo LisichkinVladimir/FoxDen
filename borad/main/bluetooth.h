@@ -2,6 +2,7 @@
 #define bluetooth_h
 
 #include <vector>
+#include <string>
 #include <stdexcept>
 #include <NimBLEDevice.h> 
 
@@ -40,6 +41,17 @@ public:
       return WIFI_PASSWORD;
     else if (uuid == SERVER_NAME_UUID)
       return SERVER_NAME;
+    else
+      throw std::invalid_argument("Invalid Characteristic uuid");
+  }
+
+  static const char* getName(const std::string uuid) {
+    if (uuid == WIFI_SSID_CHARACTERISTIC_UUID)
+      return "WIFI_SSID";
+    else if (uuid == WIFI_PASSWORD_CHARACTERISTIC_UUID)
+      return "WIFI_PASSWORD";
+    else if (uuid == SERVER_NAME_UUID)
+      return "SERVER_NAME";
     else
       throw std::invalid_argument("Invalid Characteristic uuid");
   }
