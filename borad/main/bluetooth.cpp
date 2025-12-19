@@ -1,4 +1,5 @@
 #include "bluetooth.h"
+#include "preference.h"
 
 static NimBLEServer* pServer;
 bool BluetoothConnected = false;
@@ -72,62 +73,78 @@ class ServerCallbacks : public NimBLEServerCallbacks {
 
 /** Handler class for characteristic actions */
 class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
-    void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
-        Serial.printf("%s : onRead(), value: %s\n",
-                      pCharacteristic->getUUID().toString().c_str(),
-                      pCharacteristic->getValue().c_str());
-    }
+  void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
+    #ifdef DEBUG_MODE
+    Serial.printf("%s : onRead(), value: %s\n",
+                  pCharacteristic->getUUID().toString().c_str(),
+                  pCharacteristic->getValue().c_str());
+    #endif  
+  }
 
-    void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
-        Serial.printf("%s : onWrite(), value: %s\n",
-                      pCharacteristic->getUUID().toString().c_str(),
-                      pCharacteristic->getValue().c_str());
-    }
+  void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
+    std::string uuid = pCharacteristic->getUUID().toString();
+    std::string value = pCharacteristic->getValue();
+    #ifdef DEBUG_MODE
+    Serial.printf("%s : onWrite(), value: %s\n", uuid.c_str(), value.c_str());
+    #endif  
+    FBLECharacteristics::setValue(uuid, value);
+    setPreference(FBLECharacteristics::getName(uuid), value);
+  }
 
-    /**
-     *  The value returned in code is the NimBLE host return code.
-     */
-    void onStatus(NimBLECharacteristic* pCharacteristic, int code) override {
-        Serial.printf("Notification/Indication return code: %d, %s\n", code, NimBLEUtils::returnCodeToString(code));
-    }
+  /**
+    *  The value returned in code is the NimBLE host return code.
+    */
+  void onStatus(NimBLECharacteristic* pCharacteristic, int code) override {
+    #ifdef DEBUG_MODE
+    Serial.printf("Notification/Indication return code: %d, %s\n", code, NimBLEUtils::returnCodeToString(code));
+    #endif  
+  }
 
-    /** Peer subscribed to notifications/indications */
-    void onSubscribe(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo, uint16_t subValue) override {
-        std::string str  = "Client ID: ";
-        str             += connInfo.getConnHandle();
-        str             += " Address: ";
-        str             += connInfo.getAddress().toString();
-        if (subValue == 0) {
-            str += " Unsubscribed to ";
-        } else if (subValue == 1) {
-            str += " Subscribed to notifications for ";
-        } else if (subValue == 2) {
-            str += " Subscribed to indications for ";
-        } else if (subValue == 3) {
-            str += " Subscribed to notifications and indications for ";
-        }
-        str += std::string(pCharacteristic->getUUID());
-
-        Serial.printf("%s\n", str.c_str());
+  /** Peer subscribed to notifications/indications */
+  void onSubscribe(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo, uint16_t subValue) override {
+    #ifdef DEBUG_MODE
+    std::string str  = "Client ID: ";
+    str             += connInfo.getConnHandle();
+    str             += " Address: ";
+    str             += connInfo.getAddress().toString();
+    if (subValue == 0) {
+        str += " Unsubscribed to ";
+    } else if (subValue == 1) {
+        str += " Subscribed to notifications for ";
+    } else if (subValue == 2) {
+        str += " Subscribed to indications for ";
+    } else if (subValue == 3) {
+        str += " Subscribed to notifications and indications for ";
     }
+    str += std::string(pCharacteristic->getUUID());
+
+    Serial.printf("%s\n", str.c_str());
+    #endif
+  }
 } chrCallbacks;
 
 /** Handler class for descriptor actions */
 class DescriptorCallbacks : public NimBLEDescriptorCallbacks {
-    void onWrite(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
-        std::string dscVal = pDescriptor->getValue();
-        Serial.printf("Descriptor written value: %s\n", dscVal.c_str());
-    }
+  void onWrite(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
+    #ifdef DEBUG_MODE
+    std::string dscVal = pDescriptor->getValue();
+    Serial.printf("Descriptor written value: %s\n", dscVal.c_str());
+    #endif
+  }
 
-    void onRead(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
-        Serial.printf("%s Descriptor read\n", pDescriptor->getUUID().toString().c_str());
-    }
+  void onRead(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
+    #ifdef DEBUG_MODE
+    Serial.printf("%s Descriptor read %s\n", pDescriptor->getUUID().toString().c_str(), pDescriptor->getValue().c_str());
+    #endif
+  }
 } dscCallbacks; 
 
 void initBluetooth(void) {
+    #ifdef DEBUG_MODE
     Serial.printf("Запуск Bluetooth Server\n");
+    #endif
 
-    NimBLEDevice::init("FoxDenBluetooth");
+    NimBLEDevice::init(BLUETOOTH_SERVER_NAME);
 
     /**
      * Set the IO capabilities of the device, each option will trigger a different pairing method.
@@ -150,36 +167,23 @@ void initBluetooth(void) {
     pServer = NimBLEDevice::createServer();
     pServer->setCallbacks(&serverCallbacks);
 
-    NimBLEService*        pService = pServer->createService(SERVICE_UUID);
-    NimBLECharacteristic* pBeefCharacteristic =
-        pService->createCharacteristic(CHARACTERISTIC_UUID,
-                                           NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY 
-                                               /** Require a secure connection for read and write access */
-                                               //NIMBLE_PROPERTY::READ_ENC | // only allow reading if paired / encrypted
-                                               //NIMBLE_PROPERTY::WRITE_ENC  // only allow writing if paired / encrypted
-        );
+    NimBLEService* pService = pServer->createService(SERVICE_UUID);
 
-    pBeefCharacteristic->setValue("Burger");
-    pBeefCharacteristic->setCallbacks(&chrCallbacks);
+    FBLECharacteristics vCharacteristics = {
+        { WIFI_SSID_CHARACTERISTIC_UUID, "WIFI SSID" },
+        { WIFI_PASSWORD_CHARACTERISTIC_UUID, "WIFI Password"},
+        { SERVER_NAME_UUID, "Web server name"}
+    };
 
-    /**
-     *  2902 and 2904 descriptors are a special case, when createDescriptor is called with
-     *  either of those uuid's it will create the associated class with the correct properties
-     *  and sizes. However we must cast the returned reference to the correct type as the method
-     *  only returns a pointer to the base NimBLEDescriptor class.
-     */
-    NimBLE2904* pBeef2904 = pBeefCharacteristic->create2904();
-    pBeef2904->setFormat(NimBLE2904::FORMAT_UTF8);
-    pBeef2904->setCallbacks(&dscCallbacks);
-
-
-    /** Custom descriptor: Arguments are UUID, Properties, max length of the value in bytes */
-    NimBLEDescriptor* pC01Ddsc =
-        pBeefCharacteristic->createDescriptor("C01D",
-                                              NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_ENC,
-                                              20);
-    pC01Ddsc->setValue("Send it back!");
-    pC01Ddsc->setCallbacks(&dscCallbacks);
+    for (byte i = 0; i < vCharacteristics.size(); ++i) {
+      FBLECharacteristic& characteristic = vCharacteristics[i];
+      NimBLECharacteristic* pCharacteristic = pService->createCharacteristic(characteristic.uuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
+      pCharacteristic->setValue(FBLECharacteristics::getValue(characteristic.uuid));
+      pCharacteristic->setCallbacks(&chrCallbacks);
+      NimBLEDescriptor* pDescription = pCharacteristic->createDescriptor(BLEUUID((uint16_t)0x2901));
+      pDescription->setValue(characteristic.description.c_str());
+      //pDescription->setCallbacks(&chrCallbacks);
+    }
 
     /** Start the services when finished creating all Characteristics and Descriptors */
     pService->start();
@@ -195,20 +199,7 @@ void initBluetooth(void) {
     pAdvertising->enableScanResponse(true);
     pAdvertising->start();
 
-    Serial.printf("Advertising Started\n"); 
-}
-
-void checkBluetoothConnected(void) {
-    if (pServer->getConnectedCount()) {
-        if (!BluetoothConnected)
-          Serial.print("loop server connected\n");
-        BluetoothConnected = true;
-        /*NimBLEService* pSvc = pServer->getServiceByUUID(SERVICE_UUID);
-        if (pSvc) {
-            NimBLECharacteristic* pChr = pSvc->getCharacteristic(CHARACTERISTIC_UUID);
-            if (pChr) {
-                pChr->notify();
-            }
-        }*/
-    }   
+    #ifdef DEBUG_MODE
+    Serial.printf("Advertising Started\n");
+    #endif
 }

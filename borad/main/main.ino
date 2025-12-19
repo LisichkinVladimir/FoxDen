@@ -6,9 +6,10 @@
 #include "pulse_led.h"
 #include "rest_api.h"
 #include "bluetooth.h"
+#include "preference.h"
 
 // Пины к которым подключены устройства
-static uint8_t GPIOPin[PIN_COUNT] = {0}; //{0, 1};
+static uint8_t GPIOPin[PIN_COUNT] = {0, 1};
 // Bounce объект для счетчика, помогающий избежать закрытии или открытии множества нежелательных ложных состояний (похожих на шум)
 Bounce bounce[PIN_COUNT] = {};
 
@@ -18,6 +19,8 @@ void setup() {
   delay(1000);
   Serial.println("Setup-----------------------------------");
   #endif
+  // Инициализируем переменные из Flash-памяти
+  initPreference();
   // Инициализируем светодиод
   initLed();
   // Инициализируем буферы

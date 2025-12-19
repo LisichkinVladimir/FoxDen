@@ -7,6 +7,6 @@
 // #define DEBUG_MODE_MAIN
 #endif
 
-#define PIN_COUNT 1
+#define PIN_COUNT 2
 
 #endif
