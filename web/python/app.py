@@ -59,7 +59,7 @@ def login():
         else:
             logging.warning("Failed login attempt for user: %s", username)
             return render_template('index.html', username=None, error="Неверный логин или пароль")
-    
+
     except SQLAlchemyError as ex:
         logging.error("Database error in login: %s", ex)
         return render_template('index.html', username=None, error="Ошибка базы данных")
@@ -97,10 +97,10 @@ def dashboard():
         # device_readings = {}
         # for device in devices:
         #     query = text("""
-        #         SELECT moment, indicator_value 
-        #         FROM public.device_readings 
-        #         WHERE device_id = :device_id 
-        #         ORDER BY moment DESC 
+        #         SELECT moment, indicator_value
+        #         FROM public.device_readings
+        #         WHERE device_id = :device_id
+        #         ORDER BY moment DESC
         #         LIMIT 10
         #     """)
         #     readings_result = connect.execute(query, {"device_id": device.id})
@@ -196,7 +196,7 @@ def connect_device():
 
         devices = []
         for row in rows:
-            logging.info("row.id: {row.id} row.pin {row.pin}")
+            logging.info(f"row.id: {row.id} row.pin {row.pin}")
             if row.id:
                 devices.append({"id": row.id, "pin:": row.pin})
 

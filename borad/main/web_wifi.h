@@ -17,6 +17,7 @@
 #include "arduino_secrets.h"
 
 #include "main.h"
+#include "pulse_led.h"
 #include "tz.h"
 
 #define WIFI_TIMEOUT 60000   // 1 minutes

@@ -59,9 +59,9 @@ void initBuffer(void) {
     pulseQueue = xQueueCreate(MAX_PULSE_SIZE, sizeof(Pulse));
     #ifdef DEBUG_MODE_BUFFER
     if (pulseQueue == NULL)
-      Serial.printf("ERROR. Ошибка создания очереди\n");
+      Serial.printf("ERROR. Ошибка создания очереди импульсов\n");
     else
-      Serial.printf("Очередь создана\n");
+      Serial.printf("Очередь импульсов создана\n");
     #endif
 
     // Создание семафора для переменной когда последний раз была запись в очередь
