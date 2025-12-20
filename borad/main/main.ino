@@ -14,15 +14,17 @@ static uint8_t GPIOPin[PIN_COUNT] = {0, 1};
 Bounce bounce[PIN_COUNT] = {};
 
 void setup() {
-  #ifdef DEBUG_MODE  
+  #ifdef DEBUG_MODE
   Serial.begin(115200);
   delay(1000);
   Serial.println("Setup-----------------------------------");
   #endif
   // Инициализируем переменные из Flash-памяти
   initPreference();
+  #ifdef DEBUG_MODE
   // Инициализируем светодиод
   initLed();
+  #endif
   // Инициализируем буферы
   initBuffer();
   // Инициализируем Bluetooth
@@ -57,8 +59,6 @@ void loop() {
         putData2Buffer(GPIOPin[i]);
     }
   }
-  // Выключим светодиод после задержки, если он был включен
-  turnOffLed(DELAY);
 
   /*char* mac_address = NULL;
   tm* timeinfo = NULL;

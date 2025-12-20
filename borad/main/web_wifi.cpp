@@ -135,6 +135,7 @@ void waitConnecting() {
       Serial.printf("Подключено после %u ms\n", etime);
       #endif
       isWIFIConnect = true;
+      turnOnLed(DELAY, 2);
       break;
     }
     #ifdef DEBUG_MODE
