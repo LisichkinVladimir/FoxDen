@@ -339,7 +339,7 @@ def connect_device():
 
         devices = []
         for row in rows:
-            logging.info("row.id: {row.id} row.pin {row.pin}")
+            logging.info(f"row.id: {row.id} row.pin {row.pin}")
             if row.id:
                 devices.append({"id": row.id, "pin:": row.pin})
 
