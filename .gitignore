@@ -1,2 +1,8 @@
 arduino_secrets.h
 /web/python/__pycache__
+*.bak
+/web/python/*.env
+/web/python/foxden.log
+/web/python/wrappers.Response
+/web/python/templates.lnk
+

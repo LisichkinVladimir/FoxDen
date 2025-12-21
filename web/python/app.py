@@ -46,7 +46,7 @@ def login():
         return render_template('index.html', username=None, error="Ошибка подключения к БД")
 
     try:
-        query = text("SELECT * FROM public.users WHERE name=:username AND psw=md5(:password)")
+        query = text("SELECT * FROM public.get_user(:username, :password)")
         result = connect.execute(query, {"username": username, "password": password})
         user = result.fetchone()
 
@@ -59,7 +59,7 @@ def login():
         else:
             logging.warning("Failed login attempt for user: %s", username)
             return render_template('index.html', username=None, error="Неверный логин или пароль")
-    
+
     except SQLAlchemyError as ex:
         logging.error("Database error in login: %s", ex)
         return render_template('index.html', username=None, error="Ошибка базы данных")
@@ -93,12 +93,12 @@ def dashboard():
 
         # Подготавливаем данные для шаблона
         devices_data = []
-        
+
         for device in devices:
             device_id = device[0] if len(device) > 0 else None
             step_increment = float(device[6]) if len(device) > 6 and device[6] is not None else 10.0
             current_value = float(device[7]) if len(device) > 7 and device[7] is not None else 0.0
-            
+
             # Получаем изменения для графиков
             cumulative_labels = []
             cumulative_values = []
@@ -107,26 +107,21 @@ def dashboard():
             monthly_labels = []
             monthly_values = []
             total_changes = 0
-            
+
             try:
-                query_changes = text("""
-                    SELECT moment 
-                    FROM public.device_changes 
-                    WHERE device_id = :device_id 
-                    ORDER BY moment ASC
-                """)
+                query_changes = text("select moment from public.get_device_changes(:device_id)")
                 changes_result = connect.execute(query_changes, {"device_id": device_id})
                 changes = changes_result.fetchall()
                 total_changes = len(changes)
-                
+
                 if changes:
                     # 1. НАКОПИТЕЛЬНЫЙ ГРАФИК
                     initial_value = current_value - (total_changes * step_increment)
                     cumulative = initial_value
-                    
+
                     # Берем последние 15 изменений для читаемости
                     recent_changes = changes[-15:] if len(changes) > 15 else changes
-                    
+
                     for i, change in enumerate(recent_changes):
                         if len(recent_changes) <= 8:
                             label = change.moment.strftime('%H:%M') if hasattr(change, 'moment') and change.moment else f'Точка {i+1}'
@@ -135,31 +130,31 @@ def dashboard():
                                 label = f'Т {i+1}'
                             else:
                                 label = ''
-                        
+
                         cumulative += step_increment
                         cumulative_labels.append(label)
                         cumulative_values.append(round(cumulative, 3))
-                    
+
                     # 2. ГРАФИК ПО ДНЯМ (последние 30 дней)
                     daily_counts = {}
                     for change in changes:
                         if hasattr(change, 'moment') and change.moment:
                             day_key = change.moment.strftime('%d.%m')
                             daily_counts[day_key] = daily_counts.get(day_key, 0) + 1
-                    
+
                     # Берем последние 14 дней для графика
                     daily_items = list(daily_counts.items())[-14:]
                     for day, count in daily_items:
                         daily_labels.append(day)
                         daily_values.append(count * step_increment)
-                    
+
                     # 3. ГРАФИК ПО МЕСЯЦАМ (последние 12 месяцев)
                     monthly_counts = {}
                     for change in changes:
                         if hasattr(change, 'moment') and change.moment:
                             month_key = change.moment.strftime('%Y-%m')
                             monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
-                    
+
                     # Берем все месяцы с изменениями
                     for month, count in monthly_counts.items():
                         # Форматируем месяц
@@ -170,13 +165,13 @@ def dashboard():
                             month_label = month
                         monthly_labels.append(month_label)
                         monthly_values.append(count * step_increment)
-                    
+
                     # Если мало данных, добавляем текущий месяц
                     if not monthly_labels:
                         current_month = datetime.now().strftime('%b %Y')
                         monthly_labels.append(current_month)
                         monthly_values.append(0)
-                
+
             except Exception as e:
                 logging.warning(f"No access to device_changes for device {device_id}: {e}")
                 # Если нет доступа, показываем пустые графики
@@ -186,7 +181,7 @@ def dashboard():
                 daily_values = [0]
                 monthly_labels = ['Нет данных']
                 monthly_values = [0]
-            
+
             # Формируем данные устройства
             device_data = {
                 'id': device_id,
@@ -205,7 +200,7 @@ def dashboard():
                 'monthly_labels': monthly_labels,
                 'monthly_values': monthly_values
             }
-            
+
             devices_data.append(device_data)
 
         return render_template(
@@ -231,17 +226,17 @@ def prepare_chart_data(changes, step_increment, current_value):
             'values': [current_value],
             'has_data': False
         }
-    
+
     time_labels = []
     cumulative_values = []
-    
+
     # Начинаем с начального значения
     initial_value = current_value - (len(changes) * step_increment)
     cumulative = initial_value
-    
+
     # Берем только последние 20 изменений для читаемости графика
     recent_changes = changes[-20:] if len(changes) > 20 else changes
-    
+
     for i, change in enumerate(recent_changes):
         if hasattr(change, 'moment') and change.moment:
             # Форматируем дату для подписи
@@ -253,11 +248,11 @@ def prepare_chart_data(changes, step_increment, current_value):
                     label = change.moment.strftime('%d.%m')
                 else:
                     label = ''
-            
+
             cumulative += step_increment
             time_labels.append(label)
             cumulative_values.append(float(cumulative))
-    
+
     return {
         'time_labels': time_labels,
         'values': cumulative_values,
