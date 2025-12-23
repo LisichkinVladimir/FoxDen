@@ -1,0 +1,39 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": 
+	{
+		"launch": {
+			"configurations": [
+				{
+					"name": "Python: Current File with my args",
+					"type": "debugpy",
+					"request": "launch",
+					"program": "${file}",
+					"console": "integratedTerminal"            
+				}            
+			]
+		},
+		"workbench.startupEditor": "none",
+		"pylint.args": [
+			"--disable=C0103",
+			"--disable=W0102",
+			"--disable=W1510",
+			"--disable=C0201",
+			"--extension-pkg-whitelist=PyQt6",
+			"--max-line-length=200"
+		],
+		"cSpell.language": "en,ru",
+		"cSpell.ignorePaths": [
+			"*.code-workspace",
+			"settings.json",
+			"py_init.code-workspace"
+		],
+		"cSpell.userWords": [
+			"foxden"
+		]
+	}	
+}
