@@ -36,7 +36,7 @@ Characteristics = [
         'name': 'Адрес сервера',
         'value': None,
         'description': 'Введите адрес сервера FoxDen',
-        'placeholder': 'Например: http://foxden-server.local'
+        'placeholder': 'Например: http://foxden-server.local/'
     }
 ]
 
@@ -398,6 +398,7 @@ class ConnectionWidget(QWidget):
         for param in Characteristics:
             widget = self.parameter_widgets[param['uuid']]
             value = widget.get_value()
+            param['value'] = value
             values[param['name']] = value
         # Проверяем, все ли поля заполнены
         missing_fields = [name for name, value in values.items() if not value]
@@ -410,7 +411,9 @@ class ConnectionWidget(QWidget):
         self.status_label.setText("Сохранение настроек...")
         success = await self.ble_write()
         if success:
-            print("Параметры сохранены")
+            self.status_label.setText("Параметры сохранены")
+        else:
+            self.status_label.setText("Ошибка сохраненя параметров")
 
     def on_exit_clicked(self):
         """Выход из программы"""
@@ -445,6 +448,7 @@ class ConnectionWidget(QWidget):
                         # Устанавливаем значение в соответствующее поле
                         widget = self.parameter_widgets[characteristic_info['uuid']]
                         widget.set_value(characteristic_str)
+                        characteristic_info['value'] = characteristic_str
 
                         print(f"Прочитано {characteristic_info['name']}: {characteristic_str}")
                     except BleakError as e:
@@ -458,8 +462,23 @@ class ConnectionWidget(QWidget):
 
     async def ble_write(self) -> bool:
         """Запись параметров в """
-        # TODO
-        await asyncio.sleep(0)
+        if not self.client.is_connected:
+            return False
+        for characteristic_info in Characteristics:
+            characteristic_data = bytearray(characteristic_info['value'], 'utf-8')
+            try:
+                response = await self.client.write_gatt_char(
+                    char_specifier = characteristic_info['uuid'],
+                    data = characteristic_data,
+                    response = True
+                )
+                if response:
+                    print(f"Write successful. Device response: {response}")
+                else:
+                    print("Write successful (no response data returned).")
+            except BleakError as e:
+                print(f"Error during write operation: {e}")
+                return False
         return True
 
 class MainWindow(QMainWindow):
