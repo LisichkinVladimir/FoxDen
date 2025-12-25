@@ -58,7 +58,7 @@ bool connect2Web(char* mac_address) {
   
   WiFiClient client;
   HTTPClient http;  
-  std::string server = std::string(SERVER_NAME) + "connect_device";
+  std::string server = SERVER_NAME + ((SERVER_NAME.ends_with("/")) ? "connect_device" : "/connect_device");
   if (!http.begin(client, server.c_str())) {
     #ifdef DEBUG_MODE
     Serial.printf("Error begin http connection to %s", server.c_str());
