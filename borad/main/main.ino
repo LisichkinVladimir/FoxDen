@@ -16,8 +16,11 @@ Bounce bounce[PIN_COUNT] = {};
 void setup() {
   #ifdef DEBUG_MODE
   Serial.begin(115200);
-  delay(1000);
+  delay(1500);
   Serial.println("Setup-----------------------------------");
+  Serial.printf("Модель чипа: %s\n", ESP.getChipModel());
+  Serial.printf("Ревизия чипа: %u\n", ESP.getChipRevision());
+  Serial.printf("Версия SDK: %s\n", ESP.getSdkVersion());
   #endif
   // Инициализируем переменные из Flash-памяти
   initPreference();
