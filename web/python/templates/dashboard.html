@@ -43,6 +43,10 @@
         .device-status.inactive {
             background: #e74c3c;
         }
+        .device-status.leak-detected {
+            background: #e74c3c !important;
+            animation: pulse 2s infinite;
+        }
         .current-reading {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
@@ -209,6 +213,24 @@
             background: #f0f7ff;
             border-radius: 5px;
         }
+        /* Стили для утечек */
+        .leak-alerts-section {
+            margin-top: 25px; 
+            border-top: 2px solid #e74c3c; 
+            padding-top: 15px;
+            background: linear-gradient(to right, #fff5f5, #fff);
+            border-radius: 0 0 8px 8px;
+        }
+        .leak-alert {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+        }
     </style>
 </head>
 <body>
@@ -256,8 +278,10 @@
                             </span>
                         </div>
                         
-                        <div class="device-status {% if not device.state %}inactive{% endif %}">
-                            {% if device.state %}
+                        <div class="device-status {% if not device.state %}inactive{% endif %} {% if device.has_leaks %}leak-detected{% endif %}">
+                            {% if device.has_leaks %}
+                                ⚠️ УТЕЧКА
+                            {% elif device.state %}
                                 Активен ✓
                             {% else %}
                                 Неактивен ✗
@@ -416,6 +440,118 @@
                         </div>
                     </div>
                     {% endif %}
+
+                    <!-- БЛОК УТЕЧЕК - ПРАВИЛЬНОЕ МЕСТО -->
+                    {% if device.leak_alerts %}
+                    <div class="leak-alerts-section">
+                        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                            <div style="
+                                background: #e74c3c; 
+                                color: white; 
+                                padding: 8px 15px; 
+                                border-radius: 20px; 
+                                font-weight: bold; 
+                                display: flex; 
+                                align-items: center;
+                                animation: pulse 2s infinite;
+                            ">
+                                ⚠️
+                                <span style="margin-left: 8px;">
+                                    ОБНАРУЖЕНЫ УТЕЧКИ
+                                    <span style="font-size: 0.8em; opacity: 0.9;">({{ device.leak_alerts|length }})</span>
+                                </span>
+                            </div>
+                            <div style="margin-left: 15px; font-size: 0.9em; color: #7f8c8d;">
+                                Обнаружено: {{ device.leak_alerts[0].detected_at }}
+                            </div>
+                        </div>
+                        
+                        {% for alert in device.leak_alerts %}
+                        <div class="leak-alert" style="
+                            background: {% if alert.severity == 'critical' %}#ffeaea
+                                       {% elif alert.severity == 'high' %}#fff0e6
+                                       {% else %}#fff8e1{% endif %};
+                            border-left: 4px solid {% if alert.severity == 'critical' %}#e74c3c
+                                                 {% elif alert.severity == 'high' %}#f39c12
+                                                 {% else %}#f1c40f{% endif %};
+                        ">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div>
+                                    <div style="font-weight: bold; font-size: 1.1em; color: #2c3e50;">
+                                        {{ alert.message }}
+                                    </div>
+                                    
+                                    <!-- Детали утечки -->
+                                    {% if alert.type == 'long_continuous_usage' %}
+                                    <div style="margin-top: 10px; font-size: 0.9em;">
+                                        <div style="color: #7f8c8d; margin-bottom: 5px;">Детали:</div>
+                                        {% for segment in alert.details.segments %}
+                                        <div style="margin-left: 15px; margin-bottom: 3px;">
+                                            • {{ segment.duration_minutes }} минут непрерывно
+                                            <span style="color: #3498db; margin-left: 10px;">
+                                                ({{ segment.volume|round(3) }} м³)
+                                            </span>
+                                        </div>
+                                        {% endfor %}
+                                        <div style="margin-top: 8px; font-weight: bold;">
+                                            Всего: {{ alert.details.total_duration_minutes|round(1) }} мин, 
+                                            {{ alert.details.total_volume|round(3) }} м³
+                                        </div>
+                                    </div>
+                                    
+                                    {% elif alert.type == 'night_usage' %}
+                                    <div style="margin-top: 10px; font-size: 0.9em;">
+                                        <div>• Изменений ночью: {{ alert.details.night_changes_count }}</div>
+                                        <div>• Объем: {{ alert.details.night_volume|round(3) }} м³</div>
+                                        <div>• Период: {{ alert.details.period }}</div>
+                                    </div>
+                                    
+                                    {% elif alert.type == 'high_consumption_rate' %}
+                                    <div style="margin-top: 10px; font-size: 0.9em;">
+                                        <div>• Текущая скорость: {{ alert.details.current_rate|round(2) }} м³/час</div>
+                                        <div>• Нормальная скорость: {{ alert.details.historical_rate|round(2) }} м³/час</div>
+                                        <div>• Превышение: в {{ alert.details.ratio|round(1) }} раз</div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div style="text-align: right;">
+                                    <div style="
+                                        background: {% if alert.severity == 'critical' %}#e74c3c
+                                                   {% elif alert.severity == 'high' %}#f39c12
+                                                   {% else %}#f1c40f{% endif %};
+                                        color: white;
+                                        padding: 4px 10px;
+                                        border-radius: 12px;
+                                        font-size: 0.8em;
+                                        font-weight: bold;
+                                        text-transform: uppercase;
+                                    ">
+                                        {{ alert.severity }}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Рекомендации -->
+                            <div style="
+                                margin-top: 15px;
+                                padding: 10px 15px;
+                                background: #e8f4fc;
+                                border-radius: 4px;
+                                border-left: 3px solid #3498db;
+                                font-size: 0.9em;
+                            ">
+                                <div style="font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
+                                    🛠️ Рекомендуемые действия:
+                                </div>
+                                {{ alert.recommendation }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <!-- КОНЕЦ БЛОКА УТЕЧЕК -->
+                    
                 </div>
                 {% endfor %}
             </div>

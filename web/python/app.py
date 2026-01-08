@@ -7,6 +7,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 import config
 from database import connect_database, close_connection
+from leak_detector import LeakDetector
+from simple_email_sender import SimpleEmailSender
+
 
 app = Flask(__name__)
 app.config["JWT_ALGORITHM"] = "HS256"
@@ -14,6 +17,9 @@ app.config["JWT_SECRET_KEY"] = config.FOXDEN_TOKEN
 app.secret_key = config.FOXDEN_TOKEN or 'fallback_secret_key_for_sessions'
 
 jwt = JWTManager(app)
+# Инициализация системы утечек
+leak_detector = LeakDetector()
+email_sender = SimpleEmailSender()
 
 def json_error(error_code: int, error_message: str) -> wrappers.Response:
     """ Возвращает ошибку в JSON формате """
@@ -107,14 +113,28 @@ def dashboard():
             monthly_labels = []
             monthly_values = []
             total_changes = 0
+            leak_alerts = []
 
             try:
                 query_changes = text("select moment from public.get_device_changes(:device_id)")
                 changes_result = connect.execute(query_changes, {"device_id": device_id})
-                changes = changes_result.fetchall()
-                total_changes = len(changes)
+                changes_rows = changes_result.fetchall()
+                changes = []
+                for row in changes_rows:
+                    if hasattr(row, 'moment') and row.moment:
+                        changes.append({
+                            'moment': row.moment
+                        })
 
+                total_changes = len(changes)
                 if changes:
+                    leak_alerts = leak_detector.analyze_device(
+                        device_changes=changes,
+                        step_increment=step_increment,
+                        current_value=current_value,
+                        serial_number=device[4] if len(device) > 4 else 'Без номера'
+                    )
+
                     # 1. НАКОПИТЕЛЬНЫЙ ГРАФИК
                     initial_value = current_value - (total_changes * step_increment)
                     cumulative = initial_value
@@ -198,10 +218,15 @@ def dashboard():
                 'daily_labels': daily_labels,
                 'daily_values': daily_values,
                 'monthly_labels': monthly_labels,
-                'monthly_values': monthly_values
+                'monthly_values': monthly_values,  # ← ДОБАВЛЕНА ЗАПЯТАЯ ЗДЕСЬ
+                'leak_alerts': leak_alerts,
+                'has_leaks': len(leak_alerts) > 0
             }
 
             devices_data.append(device_data)
+            # ОТПРАВКА EMAIL УВЕДОМЛЕНИЙ
+            if leak_alerts:
+                send_leak_notification(session['userid'], device_data, leak_alerts)
 
         return render_template(
             'dashboard.html', 
@@ -428,6 +453,36 @@ def add_device_changes():
         if connect:
             close_connection(connect)
 
+def send_leak_notification(user_id, device_info, leak_alerts):
+    """Отправляет email уведомление об утечке"""
+    if not leak_alerts:
+        return
+
+    # Получаем email пользователя из БД
+    connect = connect_database()
+    if connect is None:
+        return
+
+    try:
+        query = text("SELECT email FROM users WHERE id = :user_id")
+        result = connect.execute(query, {"user_id": user_id})
+        user_data = result.fetchone()
+
+        if user_data and user_data.email:
+            # Отправляем email
+            email_sender.send_leak_alert(
+                user_email=user_data.email,
+                device_info=device_info,
+                leak_alerts=leak_alerts
+            )
+
+            logging.info(f"Leak notification sent to {user_data.email}")
+
+    except Exception as e:
+        logging.error(f"Error sending leak notification: {e}")
+    finally:
+        close_connection(connect)
+
 if __name__ == '__main__':
     logging.info("Starting FoxDen server...")
-    app.run(debug=True)
+    app.run(debug=config.DEBUG_MODE)

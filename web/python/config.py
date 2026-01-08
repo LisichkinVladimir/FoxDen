@@ -36,6 +36,8 @@ DB_CONFIG = {
     'port': os.getenv('FOXDEN_DB_PORT', '5432')
 }
 
+DEBUG_MODE = True if os.getenv('FOXDEN_DEBUG_MODE', '0') == '1' else False
+
 def main():
     """ Config main """
     raise SystemExit("This file cannot be operable")
