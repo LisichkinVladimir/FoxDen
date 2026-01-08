@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 import config
 from database import connect_database, close_connection
 from leak_detector import LeakDetector
-from simple_email_sender import SimpleEmailSender
+from simple_email_sender import email_sender
 
 
 app = Flask(__name__)
@@ -19,7 +19,6 @@ app.secret_key = config.FOXDEN_TOKEN or 'fallback_secret_key_for_sessions'
 jwt = JWTManager(app)
 # Инициализация системы утечек
 leak_detector = LeakDetector()
-email_sender = SimpleEmailSender()
 
 def json_error(error_code: int, error_message: str) -> wrappers.Response:
     """ Возвращает ошибку в JSON формате """
@@ -218,7 +217,7 @@ def dashboard():
                 'daily_labels': daily_labels,
                 'daily_values': daily_values,
                 'monthly_labels': monthly_labels,
-                'monthly_values': monthly_values,  # ← ДОБАВЛЕНА ЗАПЯТАЯ ЗДЕСЬ
+                'monthly_values': monthly_values,
                 'leak_alerts': leak_alerts,
                 'has_leaks': len(leak_alerts) > 0
             }
@@ -284,50 +283,6 @@ def prepare_chart_data(changes, step_increment, current_value):
         'initial_value': float(initial_value),
         'has_data': True
     }
-# @app.route('/api/device_readings')
-# def get_device_readings():
-#     """ API для получения показаний конкретного счетчика """
-#     device_id = request.args.get('device_id')
-#     if not device_id:
-#         return json_error(400, "Device ID is required"), 400
-
-#     connect = connect_database()
-#     if connect is None:
-#         return json_error(500, "Database connection error"), 500
-
-#     try:
-#         query = text("""
-#             SELECT dr.moment, dr.indicator_value, d.serial_number, d.series
-#             FROM public.device_readings dr
-#             JOIN public.devices d ON dr.device_id = d.id
-#             WHERE dr.device_id = :device_id
-#             ORDER BY dr.moment DESC
-#         """)
-#         result = connect.execute(query, {"device_id": device_id})
-#         readings = result.fetchall()
-
-#         readings_data = []
-#         for reading in readings:
-#             readings_data.append({
-#                 'moment': reading.moment.isoformat() if reading.moment else None,
-#                 'indicator_value': float(reading.indicator_value) if reading.indicator_value else 0,
-#                 'serial_number': reading.serial_number,
-#                 'series': reading.series
-#             })
-
-#         return jsonify({
-#             "error": {},
-#             "result": {
-#                 "readings": readings_data
-#             }
-#         })
-
-#     except SQLAlchemyError as ex:
-#         logging.error("Database error in get_device_readings: %s", ex)
-#         return json_error(500, "Database error"), 500
-#     finally:
-#         if connect:
-#             close_connection(connect)
 
 @app.route('/connect_device', methods=['POST'])
 def connect_device():
@@ -470,19 +425,136 @@ def send_leak_notification(user_id, device_info, leak_alerts):
 
         if user_data and user_data.email:
             # Отправляем email
-            email_sender.send_leak_alert(
+            success = email_sender.send_leak_alert(
                 user_email=user_data.email,
                 device_info=device_info,
                 leak_alerts=leak_alerts
             )
 
-            logging.info(f"Leak notification sent to {user_data.email}")
+            if success:
+                logging.info(f"Leak notification sent to {user_data.email}")
+            else:
+                logging.error(f"Failed to send leak notification to {user_data.email}")
 
     except Exception as e:
         logging.error(f"Error sending leak notification: {e}")
     finally:
         close_connection(connect)
 
+# ============================================================================
+# EMAIL TEST ENDPOINTS
+# ============================================================================
+
+@app.route('/email_test')
+def email_test():
+    """Страница тестирования email системы"""
+    stats = email_sender.get_stats()
+    
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>FoxDen Email Test</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; padding: 20px; }}
+            .container {{ max-width: 800px; margin: 0 auto; }}
+            .success {{ color: green; font-weight: bold; }}
+            .error {{ color: red; }}
+            .btn {{ 
+                background: #3498db; color: white; padding: 10px 20px; 
+                text-decoration: none; border-radius: 5px; display: inline-block;
+                margin: 5px;
+            }}
+            .info-box {{ 
+                background: #f8f9fa; padding: 15px; border-radius: 5px; 
+                margin: 15px 0; border-left: 4px solid #3498db;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>FoxDen Email System Test</h1>
+            
+            <div class="info-box">
+                <h3>Статус системы:</h3>
+                <p>Включена: <span class="{'success' if stats['enabled'] else 'error'}">{'Да' if stats['enabled'] else 'Нет'}</span></p>
+                <p>Отправлено: <strong>{stats['sent']}</strong></p>
+                <p>Ошибок: <strong>{stats['failed']}</strong></p>
+                <p>Последняя отправка: <strong>{stats['last_success'] or 'Нет'}</strong></p>
+            </div>
+            
+            <div class="info-box">
+                <h3>Конфигурация:</h3>
+                <p>SMTP: {stats['config']['smtp_server']}:{stats['config']['smtp_port']}</p>
+                <p>Пользователь: {stats['config']['username']}</p>
+                <p>Отправитель: {stats['config']['sender']}</p>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <a href="/send_test_email" class="btn">Отправить тестовое письмо</a>
+                <a href="/dashboard" class="btn">Dashboard</a>
+                <a href="/" class="btn">Главная</a>
+            </div>
+            
+            <div class="info-box">
+                <h4>Инструкция:</h4>
+                <ol>
+                    <li>Нажмите "Отправить тестовое письмо"</li>
+                    <li>Проверьте почту: vladimir2.01.0.za@gmail.com</li>
+                    <li>В реальной работе письма отправляются автоматически при обнаружении утечек</li>
+                </ol>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+@app.route('/send_test_email')
+def send_test_email_page():
+    """Отправляет тестовое письмо"""
+    test_email = "vladimir2.01.0.za@gmail.com"
+    
+    success = email_sender.send_test_email(test_email)
+    
+    if success:
+        return f'''
+        <!DOCTYPE html>
+        <html>
+        <head><title>Успех!</title></head>
+        <body style="padding: 40px; font-family: Arial;">
+            <h1 style="color: green;">Тестовое письмо отправлено!</h1>
+            <p>На адрес: <strong>{test_email}</strong></p>
+            <p>Проверьте папку "Входящие" или "Спам".</p>
+            <a href="/email_test">Назад</a> | 
+            <a href="https://mail.google.com" target="_blank">Открыть Gmail</a>
+        </body>
+        </html>
+        '''
+    else:
+        return f'''
+        <!DOCTYPE html>
+        <html>
+        <head><title>Ошибка</title></head>
+        <body style="padding: 40px; font-family: Arial;">
+            <h1 style="color: red;">Ошибка отправки</h1>
+            <p>Не удалось отправить на: <strong>{test_email}</strong></p>
+            <p>Проверьте консоль сервера для деталей.</p>
+            <a href="/email_test">Назад</a>
+        </body>
+        </html>
+        '''
+
 if __name__ == '__main__':
     logging.info("Starting FoxDen server...")
-    app.run(debug=config.DEBUG_MODE)
+    
+    # Тестирование email системы при запуске
+    if email_sender.enabled:
+        connection_test = email_sender.test_connection()
+        if connection_test:
+            logging.info("Email system: Connection test SUCCESS")
+        else:
+            logging.warning("Email system: Connection test FAILED")
+    else:
+        logging.warning("Email system: DISABLED (set SMTP_USERNAME and SMTP_PASSWORD in .env)")
+    
+    app.run(debug=config.DEBUG_MODE, host='0.0.0.0', port=5000)
