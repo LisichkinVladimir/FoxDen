@@ -1,6 +1,7 @@
 arduino_secrets.h
 /web/python/__pycache__
 *.bak
+/.setup
 /web/python/*.env
 /web/python/foxden.log
 /web/python/email_test.log

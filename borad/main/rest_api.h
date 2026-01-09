@@ -17,5 +17,6 @@
 
 bool sendData2Web(char* mac_address, tm* timeinfo, unsigned long* synchTime, std::vector<Pulse> pulseArray);
 bool connect2Web(char* mac_address);
+std::string initMacSHA256(void);
 
 #endif

@@ -5,6 +5,8 @@ char MacAddress[18] = {0};
 bool isReadMac = false;
 
 bool readMacAddress() {
+  if (isReadMac)
+    return isReadMac;
   WiFi.mode(WIFI_STA);
   WiFi.STA.begin();
   uint8_t uMacAddress[6] = {0};
@@ -221,6 +223,16 @@ void setDateTime() {
   else
     Serial.print("Ожидание завершено\n");
   #endif
+}
+
+bool initMacAddress(char** mac_address) {
+  #ifdef DEBUG_MODE
+  Serial.println("initMacAddress");
+  #endif
+  if (!isReadMac)
+    readMacAddress();  
+  *mac_address = MacAddress;
+  return isReadMac;
 }
 
 bool initWeb(char** mac_address, tm** timeinfo, unsigned long** synchTime) {

@@ -6,6 +6,8 @@ void generateSHA256(char* mac_address) {
   #ifdef DEBUG_MODE
   Serial.printf("Генерация MAC hash %s\n", mac_address);
   #endif
+  if (!mac_hash.empty())
+    return;
 
   std::vector<uint8_t> hash(32);
 	mbedtls_md_context_t ctx;
@@ -31,6 +33,14 @@ void generateSHA256(char* mac_address) {
   Serial.printf("MAC hash сгенерирован %s\n", hash_address);
   #endif
   mac_hash = hash_address;
+}
+
+std::string initMacSHA256(void) {
+  char* mac_address = NULL;
+  initMacAddress(&mac_address);
+  if (mac_hash.empty())
+    generateSHA256(mac_address);
+  return mac_hash;
 }
 
 bool isConnect = false;

@@ -24,6 +24,7 @@
 #undef SHOW_NETWORKS
 #define CURRENT_TZ TZ_Europe_Moscow
 
+bool initMacAddress(char** mac_address);
 bool initWeb(char** mac_address, tm** timeinfo, unsigned long** synchTime);
 void Disconnect(void);
 

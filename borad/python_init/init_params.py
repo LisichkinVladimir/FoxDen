@@ -14,6 +14,7 @@ from PyQt6.QtGui import QFont
 WIFI_SSID_CHARACTERISTIC_UUID = "feb5483e-36e1-4688-b7f5-ea07361b26a8"
 WIFI_PASSWORD_CHARACTERISTIC_UUID = "6908c973-cf32-4b0b-bbb5-65bcdf79f94b"
 SERVER_NAME_UUID = "3c7925e8-badf-4d38-aab6-5e930db08008"
+ESP_MAC_ADDRESS = "a52070f7-802e-486c-9412-6aff410d5d0a"
 
 Characteristics = [
     {
@@ -21,7 +22,8 @@ Characteristics = [
         'name': 'Имя WiFi сети (SSID)',
         'value': None,
         'description': 'Введите название вашей WiFi сети',
-        'placeholder': 'Например: Home_WiFi_2.4G'
+        'placeholder': 'Например: Home_WiFi_2.4G',
+        'can_changed': True
     },
     {
         'uuid': WIFI_PASSWORD_CHARACTERISTIC_UUID,
@@ -29,14 +31,24 @@ Characteristics = [
         'value': None,
         'description': 'Введите пароль от WiFi сети',
         'placeholder': 'Введите пароль',
-        'echo_mode': QLineEdit.EchoMode.Password
+        'echo_mode': QLineEdit.EchoMode.Password,
+        'can_changed': True
     },
     {
         'uuid': SERVER_NAME_UUID,
         'name': 'Адрес сервера',
         'value': None,
         'description': 'Введите адрес сервера FoxDen',
-        'placeholder': 'Например: http://foxden-server.local/'
+        'placeholder': 'Например: http://foxden-server.local/',
+        'can_changed': True
+    },
+    {
+        'uuid': ESP_MAC_ADDRESS,
+        'name': 'ESP32 MAC адрес',
+        'value': None,
+        'description': 'MAC адрес сервера FoxDen',
+        'placeholder': 'Например: cf1b28bbc4e08a9a2e867c8c893527a5fde080ab75b381184508cb85bd763921',
+        'can_changed': False
     }
 ]
 
@@ -256,6 +268,8 @@ class ConnectionWidget(QWidget):
         for param in Characteristics:
             param_widget = ParameterInputWidget(param)
             self.parameter_widgets[param['uuid']] = param_widget
+            if param['uuid'] == ESP_MAC_ADDRESS:
+                param_widget.input_field.setReadOnly(True)
             params_layout.addWidget(param_widget)
 
         main_layout.addWidget(params_frame)
@@ -465,6 +479,8 @@ class ConnectionWidget(QWidget):
         if not self.client.is_connected:
             return False
         for characteristic_info in Characteristics:
+            if not characteristic_info['can_changed']:
+                continue
             characteristic_data = bytearray(characteristic_info['value'], 'utf-8')
             try:
                 response = await self.client.write_gatt_char(
@@ -486,7 +502,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("FoxDen - Настройка ESP32")
-        self.setFixedSize(QSize(450, 620))
+        self.setFixedSize(QSize(450, 710))
 
         # Устанавливаем стиль окна
         self.setStyleSheet("""

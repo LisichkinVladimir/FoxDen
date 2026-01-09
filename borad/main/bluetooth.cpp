@@ -144,7 +144,9 @@ void initBluetooth(void) {
     Serial.printf("Запуск Bluetooth Server\n");
     #endif
 
-    NimBLEDevice::init(BLUETOOTH_SERVER_NAME);
+    std::string mac_address;
+    mac_address = initMacSHA256();
+    NimBLEDevice::init(BLUETOOTH_SERVER_NAME + mac_address);
 
     /**
      * Set the IO capabilities of the device, each option will trigger a different pairing method.
@@ -172,12 +174,17 @@ void initBluetooth(void) {
     FBLECharacteristics vCharacteristics = {
         { WIFI_SSID_CHARACTERISTIC_UUID, "WIFI SSID" },
         { WIFI_PASSWORD_CHARACTERISTIC_UUID, "WIFI Password"},
-        { SERVER_NAME_UUID, "Web server name"}
+        { SERVER_NAME_UUID, "Web server name"},
+        { ESP_MAC_ADDRESS, "ESP32 MAC address"}
     };
 
     for (byte i = 0; i < vCharacteristics.size(); ++i) {
       FBLECharacteristic& characteristic = vCharacteristics[i];
-      NimBLECharacteristic* pCharacteristic = pService->createCharacteristic(characteristic.uuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
+      NimBLECharacteristic* pCharacteristic;
+      if (characteristic.uuid == ESP_MAC_ADDRESS)
+        pCharacteristic = pService->createCharacteristic(characteristic.uuid, NIMBLE_PROPERTY::READ);
+      else
+        pCharacteristic = pService->createCharacteristic(characteristic.uuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
       pCharacteristic->setValue(FBLECharacteristics::getValue(characteristic.uuid));
       pCharacteristic->setCallbacks(&chrCallbacks);
       NimBLEDescriptor* pDescription = pCharacteristic->createDescriptor(BLEUUID((uint16_t)0x2901));
