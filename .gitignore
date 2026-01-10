@@ -3,8 +3,7 @@ arduino_secrets.h
 *.bak
 /.setup
 /web/python/*.env
-/web/python/foxden.log
-/web/python/email_test.log
+/web/python/*.log
 /web/python/wrappers.Response
 /web/python/templates.lnk
 

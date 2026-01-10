@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FoxDen - Логи утечек</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .logs-container {
+            background: #1e1e1e;
+            color: #f0f0f0;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow-y: auto;
+            margin: 20px 0;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .log-error {
+            color: #f48771;
+            background: rgba(244, 135, 113, 0.1);
+        }
+        
+        .log-warning {
+            color: #dcdcaa;
+            background: rgba(220, 220, 170, 0.1);
+        }
+        
+        .log-info {
+            color: #569cd6;
+        }
+        
+        .log-success {
+            color: #4ec9b0;
+        }
+        
+        .log-time {
+            color: #6a9955;
+        }
+        
+        .log-file {
+            color: #ce9178;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .controls select {
+            padding: 10px;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 300px;
+            margin-right: 10px;
+        }
+        
+        .controls button {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0 5px;
+        }
+        
+        .controls button:hover {
+            background: #2980b9;
+        }
+        
+        .controls button.btn-danger {
+            background: #e74c3c;
+        }
+        
+        .controls button.btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .notification {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .notification.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .notification.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .notification.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .auto-refresh {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .auto-refresh label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .last-update {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-left: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦊 FoxDen - Система логов утечек</h1>
+            <div class="user-info">
+                Пользователь: <strong>{{ username }}</strong> | 
+                <a href="/dashboard">Панель управления</a> | 
+                <a href="/">Главная</a> |
+                <a href="/email_test">Тест Email</a>
+            </div>
+        </div>
+
+        <div class="dashboard-content">
+            <h2>📋 Логи автоматических уведомлений</h2>
+            
+            <div class="info-box">
+                <h3>Как работает система:</h3>
+                <p>✅ <strong>Автоматическая отправка</strong> - Email отправляются сразу при обнаружении утечек</p>
+                <p>✅ <strong>Фоновая проверка</strong> - Каждые 15 минут проверяются все устройства</p>
+                <p>✅ <strong>Защита от спама</strong> - Не чаще 1 раза в 4 часа для одного типа утечки</p>
+                <p>✅ <strong>Детальное логирование</strong> - Все события записываются в лог-файлы</p>
+            </div>
+
+            <div class="controls">
+                <select id="logFile">
+                    <option value="leak_notifications.log">📧 Мгновенные уведомления</option>
+                    <option value="background_leaks.log">🔄 Фоновые проверки</option>
+                    <option value="foxden.log">📝 Основной лог FoxDen</option>
+                </select>
+                
+                <button onclick="loadLogFile()">🔄 Загрузить</button>
+                <button onclick="testEmail()" style="background: #27ae60;">✉️ Тест Email</button>
+                <button onclick="clearLogFile()" class="btn-danger">🗑️ Очистить</button>
+            </div>
+
+            <div class="auto-refresh">
+                <label>
+                    <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+                    Автообновление (30 сек)
+                </label>
+                <div class="last-update" id="lastUpdate">Загрузка...</div>
+            </div>
+
+            <div id="notification" class="notification"></div>
+
+            <div id="logsContent" class="logs-container">
+                Выберите файл логов и нажмите "Загрузить"
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Отправлено email</div>
+                    <div class="stat-number" id="emailSent">0</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Ошибок отправки</div>
+                    <div class="stat-number" id="emailFailed">0</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Всего утечек</div>
+                    <div class="stat-number" id="totalLeaks">0</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">Последняя утечка</div>
+                    <div class="stat-number" id="lastLeak">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        
+        // Загружаем логи при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLogFile();
+            loadStats();
+        });
+        
+        function loadLogFile() {
+            const logFile = document.getElementById('logFile').value;
+            const logsContainer = document.getElementById('logsContent');
+            
+            logsContainer.innerHTML = '⏳ Загрузка логов...';
+            
+            fetch('/get_logs?file=' + encodeURIComponent(logFile))
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка загрузки');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    // Форматируем логи с цветовой подсветкой
+                    const formattedLogs = formatLogs(data);
+                    logsContainer.innerHTML = formattedLogs;
+                    
+                    // Прокручиваем вниз
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                    
+                    // Обновляем время
+                    updateLastUpdate();
+                    
+                    showNotification('Логи успешно загружены', 'success');
+                })
+                .catch(error => {
+                    logsContainer.innerHTML = '❌ Ошибка загрузки: ' + error.message;
+                    showNotification('Ошибка загрузки логов', 'error');
+                });
+        }
+        
+        function formatLogs(logText) {
+            const lines = logText.split('\n');
+            let result = '';
+            
+            lines.forEach(line => {
+                let cssClass = '';
+                
+                if (line.includes('❌') || line.includes('ERROR') || line.toLowerCase().includes('ошибка')) {
+                    cssClass = 'log-error';
+                } else if (line.includes('⚠️') || line.includes('WARNING') || line.toLowerCase().includes('предупреждение')) {
+                    cssClass = 'log-warning';
+                } else if (line.includes('✅') || line.includes('SUCCESS') || line.toLowerCase().includes('успешно')) {
+                    cssClass = 'log-success';
+                } else if (line.includes('🔍') || line.includes('INFO') || line.includes('ℹ️')) {
+                    cssClass = 'log-info';
+                } else if (line.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)) {
+                    cssClass = 'log-time';
+                } else if (line.includes('.log') || line.includes('Файл')) {
+                    cssClass = 'log-file';
+                }
+                
+                if (cssClass) {
+                    result += `<div class="log-entry ${cssClass}">${line}</div>`;
+                } else {
+                    result += `<div class="log-entry">${line}</div>`;
+                }
+            });
+            
+            return result;
+        }
+        
+        function clearLogFile() {
+            const logFile = document.getElementById('logFile').value;
+            
+            if (!confirm(`Очистить файл ${logFile}?`)) {
+                return;
+            }
+            
+            showNotification('Очистка файла...', 'info');
+            
+            fetch('/clear_logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ file: logFile })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Файл очищен', 'success');
+                    loadLogFile();
+                } else {
+                    showNotification('Ошибка: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Ошибка: ' + error.message, 'error');
+            });
+        }
+        
+        function testEmail() {
+            showNotification('Отправка тестового email...', 'info');
+            
+            fetch('/send_test_email')
+                .then(response => response.text())
+                .then(data => {
+                    showNotification('Тестовый email отправлен', 'success');
+                })
+                .catch(error => {
+                    showNotification('Ошибка отправки: ' + error.message, 'error');
+                });
+        }
+        
+        function loadStats() {
+            fetch('/email_stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('emailSent').textContent = data.sent || 0;
+                    document.getElementById('emailFailed').textContent = data.failed || 0;
+                    document.getElementById('totalLeaks').textContent = data.total_leaks || 0;
+                    document.getElementById('lastLeak').textContent = data.last_leak || '-';
+                });
+        }
+        
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            
+            if (checkbox.checked) {
+                autoRefreshInterval = setInterval(() => {
+                    loadLogFile();
+                    loadStats();
+                }, 30000); // 30 секунд
+                showNotification('Автообновление включено', 'info');
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                    showNotification('Автообновление выключено', 'info');
+                }
+            }
+        }
+        
+        function updateLastUpdate() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ru-RU');
+            document.getElementById('lastUpdate').textContent = `Обновлено: ${timeStr}`;
+        }
+        
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification ' + type;
+            notification.style.display = 'block';
+            
+            // Скрыть через 5 секунд
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,9 @@
 """ Сервер приложения FoxDen """
 import logging
-from datetime import datetime
+import time
+import threading
+import traceback
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, wrappers, render_template, session, redirect, url_for
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from sqlalchemy import text
@@ -10,15 +13,9 @@ from database import connect_database, close_connection
 from leak_detector import LeakDetector
 from simple_email_sender import email_sender
 
-
-app = Flask(__name__)
-app.config["JWT_ALGORITHM"] = "HS256"
-app.config["JWT_SECRET_KEY"] = config.FOXDEN_TOKEN
-app.secret_key = config.FOXDEN_TOKEN or 'fallback_secret_key_for_sessions'
-
-jwt = JWTManager(app)
-# Инициализация системы утечек
-leak_detector = LeakDetector()
+# ============================================================================
+# ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+# ============================================================================
 
 def json_error(error_code: int, error_message: str) -> wrappers.Response:
     """ Возвращает ошибку в JSON формате """
@@ -30,6 +27,497 @@ def json_error(error_code: int, error_message: str) -> wrappers.Response:
         "result": {}
     }
     return jsonify(result)
+
+# ============================================================================
+# СОЗДАНИЕ ПРИЛОЖЕНИЯ FLASK
+# ============================================================================
+
+app = Flask(__name__)
+app.config["JWT_ALGORITHM"] = "HS256"
+app.config["JWT_SECRET_KEY"] = config.FOXDEN_TOKEN
+app.secret_key = config.FOXDEN_TOKEN or 'fallback_secret_key_for_sessions'
+
+jwt = JWTManager(app)
+
+# Инициализация системы утечек
+leak_detector = LeakDetector()
+
+# ============================================================================
+# ГЛОБАЛЬНЫЙ КЭШ ДЛЯ УВЕДОМЛЕНИЙ
+# ============================================================================
+
+last_notifications = {}
+
+def should_send_notification(device_id, alert_type):
+    """Проверяет, можно ли отправлять уведомление (не чаще 1 раза в 4 часа)"""
+    key = f"{device_id}_{alert_type}"
+    current_time = time.time()
+    
+    if key in last_notifications:
+        # Не отправляем чаще чем раз в 4 часа
+        if current_time - last_notifications[key] < 4 * 3600:
+            return False
+    
+    last_notifications[key] = current_time
+    return True
+
+# ============================================================================
+# ФУНКЦИЯ АВТОМАТИЧЕСКОЙ ОТПРАВКИ EMAIL
+# ============================================================================
+
+def send_automatic_leak_email(device_id, current_value, serial_number):
+    """
+    Автоматически отправляет email при обнаружении утечки
+    Вызывается сразу после добавления изменений
+    """
+    try:
+        logging.info("[AUTO EMAIL] Проверка утечек для устройства %s (%s)", device_id, serial_number)
+        
+        connect = connect_database()
+        if connect is None:
+            logging.error("[AUTO EMAIL] Не удалось подключиться к БД")
+            return False
+        
+        try:
+            # 1. Получаем информацию об устройстве и пользователе
+            query = text("""
+                SELECT 
+                    d.serial_number,
+                    d.step_increment,
+                    d.indicator,
+                    d.user_id,
+                    u.email,
+                    u.name as username
+                FROM devices d
+                JOIN users u ON d.user_id = u.id
+                WHERE d.id = :device_id 
+                AND d.state = true 
+                AND u.state = true
+            """)
+            result = connect.execute(query, {"device_id": device_id})
+            device_row = result.fetchone()
+            
+            if not device_row:
+                logging.warning("[AUTO EMAIL] Устройство %s не найдено", device_id)
+                return False
+            
+            # Извлекаем данные
+            step_increment = float(device_row[1]) if device_row[1] is not None else 10.0
+            serial_num = device_row[0] if device_row[0] else serial_number
+            user_email = device_row[4] if device_row[4] else None
+            
+            if not user_email:
+                logging.error("[AUTO EMAIL] Email пользователя не найден для устройства %s", device_id)
+                return False
+            
+            # 2. Получаем изменения устройства за последние 24 часа
+            twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+            
+            query_changes = text("""
+                SELECT moment FROM public.get_device_changes(:device_id)
+                WHERE moment >= :start_time
+                ORDER BY moment ASC
+            """)
+            
+            changes_result = connect.execute(query_changes, {
+                "device_id": device_id,
+                "start_time": twenty_four_hours_ago
+            })
+            
+            changes_rows = changes_result.fetchall()
+            
+            # Преобразуем в формат для анализатора
+            changes = []
+            for row in changes_rows:
+                if row and hasattr(row, 'moment') and row.moment:
+                    changes.append({'moment': row.moment})
+            
+            if len(changes) < 3:
+                logging.info("[AUTO EMAIL] Мало изменений (%s) для анализа утечек", len(changes))
+                return False
+            
+            # 3. Анализируем утечки
+            leak_alerts = leak_detector.analyze_device(
+                device_changes=changes,
+                step_increment=step_increment,
+                current_value=current_value,
+                serial_number=serial_num
+            )
+            
+            if not leak_alerts:
+                logging.info("[AUTO EMAIL] Утечки не обнаружены для устройства %s", device_id)
+                return False
+            
+            logging.warning("[AUTO EMAIL] ОБНАРУЖЕНА УТЕЧКА! Устройство %s: %s предупреждений", serial_num, len(leak_alerts))
+            
+            # 4. Фильтруем уведомления по кэшу
+            alerts_to_send = []
+            for alert in leak_alerts:
+                alert_type = alert.get('type', 'unknown')
+                if should_send_notification(device_id, alert_type):
+                    alerts_to_send.append(alert)
+                    logging.info("[AUTO EMAIL] Отправим уведомление типа: %s", alert_type)
+                else:
+                    logging.info("[AUTO EMAIL] Пропускаем %s (отправлялось недавно)", alert_type)
+            
+            if not alerts_to_send:
+                logging.info("[AUTO EMAIL] Все уведомления недавно отправлялись")
+                return False
+            
+            # 5. Формируем данные устройства для письма
+            device_info = {
+                'id': device_id,
+                'serial_number': serial_num,
+                'indicator': current_value,
+                'step_increment': step_increment,
+                'total_changes': len(changes)
+            }
+            
+            # 6. Отправляем email
+            logging.info("[AUTO EMAIL] ОТПРАВКА EMAIL на %s об утечке на %s", user_email, serial_num)
+            
+            success = email_sender.send_leak_alert(
+                user_email=user_email,
+                device_info=device_info,
+                leak_alerts=alerts_to_send
+            )
+            
+            if success:
+                logging.info("[AUTO EMAIL] EMAIL УСПЕШНО ОТПРАВЛЕН на %s", user_email)
+                
+                # Логируем в файл
+                try:
+                    log_file = "leak_notifications.log"
+                    with open(log_file, "a", encoding="utf-8") as f:
+                        f.write(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ")
+                        f.write(f"Устройство {serial_num} - Email отправлен на {user_email} - ")
+                        f.write(f"Текущее значение: {current_value} - ")
+                        f.write(f"Утечек: {len(alerts_to_send)}\n")
+                except Exception as log_error:
+                    logging.warning("[AUTO EMAIL] Ошибка записи лога: %s", log_error)
+                
+                return True
+            else:
+                logging.error("[AUTO EMAIL] НЕ УДАЛОСЬ ОТПРАВИТЬ EMAIL на %s", user_email)
+                return False
+                
+        except Exception as e:
+            logging.error("[AUTO EMAIL] Ошибка при отправке email: %s", e)
+            logging.error(traceback.format_exc())
+            return False
+        finally:
+            close_connection(connect)
+            
+    except Exception as e:
+        logging.error("[AUTO EMAIL] Критическая ошибка: %s", e)
+        logging.error(traceback.format_exc())
+        return False
+
+def check_single_device_for_leaks(device_id, serial_number, current_value):
+    """
+    Проверяет одно устройство на утечки и отправляет email если нужно
+    Возвращает информацию об утечках для отображения в dashboard
+    """
+    try:
+        connect = connect_database()
+        if connect is None:
+            return {"error": "Не удалось подключиться к БД"}
+        
+        try:
+            # Получаем информацию об устройстве
+            query = text("""
+                SELECT 
+                    d.step_increment,
+                    d.user_id,
+                    u.email
+                FROM devices d
+                JOIN users u ON d.user_id = u.id
+                WHERE d.id = :device_id 
+                AND d.state = true 
+                AND u.state = true
+            """)
+            result = connect.execute(query, {"device_id": device_id})
+            device_row = result.fetchone()
+            
+            if not device_row:
+                return {"error": "Устройство не найдено"}
+            
+            step_increment = float(device_row[0]) if device_row[0] is not None else 10.0
+            user_email = device_row[2] if device_row[2] else None
+            
+            # Получаем изменения устройства за последние 24 часа
+            twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+            
+            query_changes = text("""
+                SELECT moment FROM public.get_device_changes(:device_id)
+                WHERE moment >= :start_time
+                ORDER BY moment ASC
+            """)
+            
+            changes_result = connect.execute(query_changes, {
+                "device_id": device_id,
+                "start_time": twenty_four_hours_ago
+            })
+            
+            changes_rows = changes_result.fetchall()
+            
+            # Преобразуем в формат для анализатора
+            changes = []
+            for row in changes_rows:
+                if row and hasattr(row, 'moment') and row.moment:
+                    changes.append({'moment': row.moment})
+            
+            if len(changes) < 3:
+                return {"info": f"Мало изменений ({len(changes)}) для анализа утечек"}
+            
+            # Анализируем утечки
+            leak_alerts = leak_detector.analyze_device(
+                device_changes=changes,
+                step_increment=step_increment,
+                current_value=current_value,
+                serial_number=serial_number
+            )
+            
+            if not leak_alerts:
+                return {"info": "Утечки не обнаружены"}
+            
+            result_data = {
+                "success": True,
+                "leak_count": len(leak_alerts),
+                "alerts": leak_alerts,
+                "device_id": device_id,
+                "serial_number": serial_number
+            }
+
+            # Автоматически отправляем email если есть утечки и email пользователя
+            if user_email and leak_alerts:
+                # Фильтруем уведомления по кэшу
+                alerts_to_send = []
+                for alert in leak_alerts:
+                    alert_type = alert.get('type', 'unknown')
+                    if should_send_notification(device_id, alert_type):
+                        alerts_to_send.append(alert)
+                
+                if alerts_to_send:
+                    device_info = {
+                        'id': device_id,
+                        'serial_number': serial_number,
+                        'indicator': current_value,
+                        'step_increment': step_increment,
+                        'total_changes': len(changes)
+                    }
+                    
+                    success = email_sender.send_leak_alert(
+                        user_email=user_email,
+                        device_info=device_info,
+                        leak_alerts=alerts_to_send
+                    )
+                    
+                    if success:
+                        result_data["email_sent"] = True
+                        result_data["email_address"] = user_email
+                        logging.info("[DASHBOARD CHECK] Email отправлен на %s об утечке на %s", user_email, serial_number)
+            
+            return result_data
+                
+        except Exception as e:
+            logging.error("[DASHBOARD CHECK] Ошибка проверки устройства %s: %s", device_id, e)
+            return {"error": f"Ошибка проверки: {e}"}
+        finally:
+            close_connection(connect)
+            
+    except Exception as e:
+        logging.error("[DASHBOARD CHECK] Критическая ошибка: %s", e)
+        return {"error": f"Критическая ошибка: {e}"}
+
+# ============================================================================
+# ФОНОВЫЙ МОНИТОРИНГ
+# ============================================================================
+
+class BackgroundMonitor:
+    def __init__(self, check_interval_minutes=15):
+        self.check_interval = check_interval_minutes * 60
+        self.leak_detector = LeakDetector()
+        self.running = False
+        self.thread = None
+        self.last_checks = {}
+    
+    def start(self):
+        """Запускает фоновый мониторинг"""
+        if self.running:
+            logging.warning("Мониторинг уже запущен")
+            return
+        
+        self.running = True
+        self.thread = threading.Thread(target=self._monitoring_loop, daemon=True)
+        self.thread.start()
+        logging.info("Фоновый мониторинг запущен. Интервал проверок: %s минут", self.check_interval/60)
+    
+    def stop(self):
+        """Останавливает фоновый мониторинг"""
+        self.running = False
+        if self.thread:
+            self.thread.join(timeout=5)
+        logging.info("Фоновый мониторинг остановлен")
+    
+    def _monitoring_loop(self):
+        """Основной цикл мониторинга"""
+        while self.running:
+            try:
+                self.check_all_devices()
+            except Exception as e:
+                logging.error("Ошибка в цикле мониторинга: %s", e)
+            
+            # Ждем перед следующей проверкой
+            for _ in range(int(self.check_interval)):
+                if not self.running:
+                    break
+                time.sleep(1)
+    
+    def check_all_devices(self):
+        """Проверяет ВСЕ активные устройства на утечки"""
+        logging.info("Начинаем периодическую проверку ВСЕХ устройств")
+        
+        connect = connect_database()
+        if connect is None:
+            logging.error("Не удалось подключиться к БД")
+            return
+        
+        try:
+            # Используем функцию get_devices для получения всех устройств
+            # и затем проверяем каждое отдельно
+            query_users = text("SELECT id, email FROM users WHERE state = true AND email IS NOT NULL")
+            users_result = connect.execute(query_users)
+            users = users_result.fetchall()
+            
+            if not users:
+                logging.info("Нет активных пользователей с email")
+                return
+            
+            total_devices = 0
+            total_leaks = 0
+            
+            for user in users:
+                user_id = user[0]
+                user_email = user[1]
+                
+                try:
+                    # Получаем ВСЕ устройства пользователя через функцию
+                    query_devices = text("SELECT * FROM public.get_devices(:user_id)")
+                    devices_result = connect.execute(query_devices, {"user_id": user_id})
+                    devices = devices_result.fetchall()
+                    
+                    for device in devices:
+                        total_devices += 1
+                        try:
+                            leak_count = self.check_single_device(connect, device, user_email)
+                            if leak_count > 0:
+                                total_leaks += leak_count
+                        except Exception as e:
+                            logging.error("Ошибка проверки устройства %s: %s", device[0] if device else 'unknown', e)
+                            
+                except Exception as e:
+                    logging.error("Ошибка получения устройств пользователя %s: %s", user_id, e)
+            
+            logging.info("Периодическая проверка завершена. Проверено устройств: %s, найдено утечек: %s", 
+                        total_devices, total_leaks)
+            
+        except Exception as e:
+            logging.error("Ошибка при проверке устройств: %s", e)
+        finally:
+            close_connection(connect)
+    
+    def check_single_device(self, connect, device, user_email):
+        """Проверяет одно устройство на утечки и возвращает количество утечек"""
+        if len(device) < 8:
+            return 0
+        
+        device_id = device[0]
+        
+        # Проверяем, не проверяли ли это устройство недавно
+        current_time = time.time()
+        if device_id in self.last_checks:
+            time_since_last = current_time - self.last_checks[device_id]
+            if time_since_last < 1800:  # 30 минут
+                return 0
+        
+        self.last_checks[device_id] = current_time
+        
+        step_increment = float(device[6]) if len(device) > 6 and device[6] is not None else 10.0
+        current_value = float(device[7]) if len(device) > 7 and device[7] is not None else 0.0
+        serial_number = device[4] if len(device) > 4 and device[4] else f'Устройство {device_id}'
+        
+        # Получаем изменения за последние 24 часа
+        twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+        
+        query_changes = text("""
+            SELECT moment FROM public.get_device_changes(:device_id)
+            WHERE moment >= :start_time
+            ORDER BY moment ASC
+        """)
+        
+        changes_result = connect.execute(query_changes, {
+            "device_id": device_id,
+            "start_time": twenty_four_hours_ago
+        })
+        
+        changes_rows = changes_result.fetchall()
+        changes = [{'moment': row.moment} for row in changes_rows if row and hasattr(row, 'moment') and row.moment]
+        
+        if len(changes) < 3:
+            return 0
+        
+        # Анализируем утечки
+        leak_alerts = self.leak_detector.analyze_device(
+            device_changes=changes,
+            step_increment=step_increment,
+            current_value=current_value,
+            serial_number=serial_number
+        )
+        
+        if not leak_alerts:
+            return 0
+        
+        logging.warning("Устройство %s: обнаружено %s утечек", device_id, len(leak_alerts))
+        
+        # Формируем данные устройства
+        device_info = {
+            'id': device_id,
+            'serial_number': serial_number,
+            'indicator': current_value,
+            'step_increment': step_increment
+        }
+        
+        # Отправляем email
+        try:
+            success = email_sender.send_leak_alert(
+                user_email=user_email,
+                device_info=device_info,
+                leak_alerts=leak_alerts
+            )
+            
+            if success:
+                logging.info("Фоновое уведомление отправлено на %s", user_email)
+            else:
+                logging.error("Не удалось отправить фоновое уведомление на %s", user_email)
+                
+        except Exception as e:
+            logging.error("Ошибка отправки email для устройства %s: %s", device_id, e)
+        
+        return len(leak_alerts)
+
+# Глобальный экземпляр мониторинга
+background_monitor = BackgroundMonitor()
+
+def start_background_monitoring(check_interval_minutes=15):
+    """Запускает фоновый мониторинг"""
+    background_monitor.check_interval = check_interval_minutes * 60
+    background_monitor.start()
+    return background_monitor
+
+# ============================================================================
+# ОСНОВНЫЕ МАРШРУТЫ
+# ============================================================================
 
 @app.route('/')
 def hello_world():
@@ -45,7 +533,6 @@ def login():
     username = request.form.get('username')
     password = request.form.get('password')
 
-    # Подключиться к БД
     connect = connect_database()
     if connect is None:
         return render_template('index.html', username=None, error="Ошибка подключения к БД")
@@ -55,7 +542,6 @@ def login():
         result = connect.execute(query, {"username": username, "password": password})
         user = result.fetchone()
 
-        # Если нашел
         if user:
             session['username'] = username
             session['userid'] = user.id
@@ -91,7 +577,7 @@ def dashboard():
         return render_template('error.html', error="Ошибка подключения к БД")
 
     try:
-        # Получаем список всех счетчиков
+        # Получаем список ВСЕХ счетчиков пользователя
         query = text("select * from public.get_devices(:user_id)")
         result = connect.execute(query, {"user_id": session['userid']})
         devices = result.fetchall()
@@ -143,7 +629,7 @@ def dashboard():
 
                     for i, change in enumerate(recent_changes):
                         if len(recent_changes) <= 8:
-                            label = change.moment.strftime('%H:%M') if hasattr(change, 'moment') and change.moment else f'Точка {i+1}'
+                            label = change['moment'].strftime('%H:%M') if hasattr(change['moment'], 'strftime') else f'Точка {i+1}'
                         else:
                             if i % 3 == 0 or i == len(recent_changes) - 1:
                                 label = f'Т {i+1}'
@@ -157,24 +643,36 @@ def dashboard():
                     # 2. ГРАФИК ПО ДНЯМ (последние 30 дней)
                     daily_counts = {}
                     for change in changes:
-                        if hasattr(change, 'moment') and change.moment:
-                            day_key = change.moment.strftime('%d.%m')
-                            daily_counts[day_key] = daily_counts.get(day_key, 0) + 1
+                        if 'moment' in change and change['moment']:
+                            try:
+                                day_key = change['moment'].strftime('%d.%m')
+                                daily_counts[day_key] = daily_counts.get(day_key, 0) + 1
+                            except:
+                                pass
 
                     # Берем последние 14 дней для графика
-                    daily_items = list(daily_counts.items())[-14:]
+                    daily_items = list(daily_counts.items())[-14:] if daily_counts else []
                     for day, count in daily_items:
                         daily_labels.append(day)
                         daily_values.append(count * step_increment)
 
+                    # Если нет данных для графика по дням
+                    if not daily_labels:
+                        daily_labels = ['Нет данных']
+                        daily_values = [0]
+
                     # 3. ГРАФИК ПО МЕСЯЦАМ (последние 12 месяцев)
                     monthly_counts = {}
                     for change in changes:
-                        if hasattr(change, 'moment') and change.moment:
-                            month_key = change.moment.strftime('%Y-%m')
-                            monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
+                        if 'moment' in change and change['moment']:
+                            try:
+                                month_key = change['moment'].strftime('%Y-%m')
+                                monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
+                            except:
+                                pass
 
                     # Берем все месяцы с изменениями
+                    monthly_items = []
                     for month, count in monthly_counts.items():
                         # Форматируем месяц
                         try:
@@ -192,7 +690,7 @@ def dashboard():
                         monthly_values.append(0)
 
             except Exception as e:
-                logging.warning(f"No access to device_changes for device {device_id}: {e}")
+                logging.warning("No access to device_changes for device %s: %s", device_id, e)
                 # Если нет доступа, показываем пустые графики
                 cumulative_labels = ['Нет доступа']
                 cumulative_values = [current_value]
@@ -219,13 +717,11 @@ def dashboard():
                 'monthly_labels': monthly_labels,
                 'monthly_values': monthly_values,
                 'leak_alerts': leak_alerts,
-                'has_leaks': len(leak_alerts) > 0
+                'has_leaks': len(leak_alerts) > 0,
+                'check_url': f"/check_device/{device_id}"
             }
 
             devices_data.append(device_data)
-            # ОТПРАВКА EMAIL УВЕДОМЛЕНИЙ
-            if leak_alerts:
-                send_leak_notification(session['userid'], device_data, leak_alerts)
 
         return render_template(
             'dashboard.html', 
@@ -240,49 +736,6 @@ def dashboard():
     finally:
         if connect:
             close_connection(connect)
-
-
-def prepare_chart_data(changes, step_increment, current_value):
-    """ Подготовка данных для графика """
-    if not changes:
-        return {
-            'time_labels': ['Нет данных'],
-            'values': [current_value],
-            'has_data': False
-        }
-
-    time_labels = []
-    cumulative_values = []
-
-    # Начинаем с начального значения
-    initial_value = current_value - (len(changes) * step_increment)
-    cumulative = initial_value
-
-    # Берем только последние 20 изменений для читаемости графика
-    recent_changes = changes[-20:] if len(changes) > 20 else changes
-
-    for i, change in enumerate(recent_changes):
-        if hasattr(change, 'moment') and change.moment:
-            # Форматируем дату для подписи
-            if len(recent_changes) <= 10:
-                label = change.moment.strftime('%d.%m %H:%M')
-            else:
-                # Если много точек, показываем только каждую 3-ю
-                if i % 3 == 0 or i == len(recent_changes) - 1:
-                    label = change.moment.strftime('%d.%m')
-                else:
-                    label = ''
-
-            cumulative += step_increment
-            time_labels.append(label)
-            cumulative_values.append(float(cumulative))
-
-    return {
-        'time_labels': time_labels,
-        'values': cumulative_values,
-        'initial_value': float(initial_value),
-        'has_data': True
-    }
 
 @app.route('/connect_device', methods=['POST'])
 def connect_device():
@@ -304,7 +757,6 @@ def connect_device():
 
     try:
         logging.info("Connection attempt for MAC: %s", mac_address)
-        # Используем параметризованный запрос для безопасности
         query = text("select * from public.find_device(:mac_address)")
         result = connect.execute(query, {"mac_address": mac_address})
         rows = result.fetchall()
@@ -314,7 +766,7 @@ def connect_device():
 
         devices = []
         for row in rows:
-            logging.info(f"row.id: {row.id} row.pin {row.pin}")
+            logging.info("row.id: %s row.pin %s", row.id, row.pin)
             if row.id:
                 devices.append({"id": row.id, "pin:": row.pin})
 
@@ -334,17 +786,21 @@ def connect_device():
     except SQLAlchemyError as ex:
         logging.error("Database error in connect_device: %s", ex)
         return json_error(500, "Database error"), 500
-    except Exception as ex:  # pylint: disable=W0718
+    except Exception as ex:
         logging.error("Unexpected error in connect_device: %s", ex)
         return json_error(500, "Internal server error"), 500
     finally:
         if connect:
             close_connection(connect)
 
+# ============================================================================
+# КЛЮЧЕВОЙ МАРШРУТ - АВТОМАТИЧЕСКАЯ ОТПРАВКА ПРИ ИЗМЕНЕНИЯХ
+# ============================================================================
+
 @app.route('/add_device_changes', methods=['POST'])
 @jwt_required()
 def add_device_changes():
-    """ Запись об изменении показания устройства """
+    """ Запись об изменении показания устройства с АВТОМАТИЧЕСКОЙ отправкой email """
     changes = None
     mac_address = get_jwt_identity()
 
@@ -382,179 +838,358 @@ def add_device_changes():
         return json_error(500, "Database connection error"), 500
 
     try:
+        # Получаем информацию об устройстве перед добавлением изменений
+        device_info = {}
+        for change in changes:
+            device_id = change.get('device_id')
+            query_device = text("""
+                SELECT d.serial_number, d.step_increment 
+                FROM devices d
+                WHERE d.id = :device_id AND d.state = true
+            """)
+            result = connect.execute(query_device, {"device_id": device_id})
+            row = result.fetchone()
+            
+            if row:
+                device_info[device_id] = {
+                    'serial_number': row[0] if row[0] else f'Устройство {device_id}',
+                    'step_increment': float(row[1]) if row[1] else 10.0
+                }
+        
+        # Выполняем добавление изменений
         query = text("call public.add_device_changes(:mac_address, :device_id, :moment)")
         with connect.begin():
             for change in changes:
+                device_id = change.get('device_id')
                 connect.execute(query, {
                     "mac_address": mac_address,
-                    "device_id": change.get('device_id'),
+                    "device_id": device_id,
                     "moment": change.get('moment')
                 })
+                
+                # АВТОМАТИЧЕСКАЯ ОТПРАВКА EMAIL В ОТДЕЛЬНОМ ПОТОКЕ
+                if device_id in device_info:
+                    # Получаем ОБНОВЛЕННОЕ значение после добавления изменения
+                    query_updated = text("SELECT indicator FROM devices WHERE id = :device_id")
+                    result_updated = connect.execute(query_updated, {"device_id": device_id})
+                    row_updated = result_updated.fetchone()
+                    
+                    if row_updated:
+                        updated_value = float(row_updated[0]) if row_updated[0] else 0.0
+                        serial_number = device_info[device_id]['serial_number']
+                        
+                        # Запускаем проверку утечек в отдельном потоке
+                        thread = threading.Thread(
+                            target=send_automatic_leak_email,
+                            args=(device_id, updated_value, serial_number)
+                        )
+                        thread.daemon = True
+                        thread.start()
+                        
+                        logging.info("Запущена автоматическая проверка утечек для устройства %s", device_id)
+                        logging.info("Текущее значение: %s, Серийный номер: %s", updated_value, serial_number)
 
         result_data = {
             "error": {},
             "result": {
-                "success": True
+                "success": True,
+                "message": "Изменения добавлены и запущена проверка утечек"
             }
         }
         return jsonify(result_data)
+        
     except SQLAlchemyError as ex:
         logging.error("Database error in add_device_changes: %s", ex)
         return json_error(500, "Database error"), 500
-    except Exception as ex:  # pylint: disable=W0718
+    except Exception as ex:
         logging.error("Unexpected error in add_device_changes: %s", ex)
         return json_error(500, "Internal server error"), 500
     finally:
         if connect:
             close_connection(connect)
 
-def send_leak_notification(user_id, device_info, leak_alerts):
-    """Отправляет email уведомление об утечке"""
-    if not leak_alerts:
-        return
+# ============================================================================
+# НОВЫЙ МАРШРУТ - ПРОВЕРКА КОНКРЕТНОГО УСТРОЙСТВА
+# ============================================================================
 
-    # Получаем email пользователя из БД
+@app.route('/check_device/<int:device_id>')
+def check_single_device_route(device_id):
+    """ Проверяет конкретное устройство на утечки """
+    if 'username' not in session:
+        return redirect(url_for('hello_world'))
+
+    # Получаем информацию об устройстве
     connect = connect_database()
     if connect is None:
-        return
+        return jsonify({"error": "Ошибка подключения к БД"})
+    
+    try:
+        query = text("SELECT * FROM public.get_devices(:user_id)")
+        result = connect.execute(query, {"user_id": session['userid']})
+        devices = result.fetchall()
+        
+        # Ищем нужное устройство
+        target_device = None
+        for device in devices:
+            if device[0] == device_id:
+                target_device = device
+                break
+        
+        if not target_device:
+            return jsonify({"error": "Устройство не найдено"})
+        
+        serial_number = target_device[4] if len(target_device) > 4 else f'Устройство {device_id}'
+        current_value = float(target_device[7]) if len(target_device) > 7 and target_device[7] is not None else 0.0
+        
+        # Проверяем утечки
+        result = check_single_device_for_leaks(device_id, serial_number, current_value)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": f"Ошибка: {e}"})
+    finally:
+        if connect:
+            close_connection(connect)
+
+@app.route('/check_all_devices')
+def check_all_devices_route():
+    """ Проверяет ВСЕ устройства пользователя на утечки """
+    if 'username' not in session:
+        return redirect(url_for('hello_world'))
+
+    connect = connect_database()
+    if connect is None:
+        return jsonify({"error": "Ошибка подключения к БД"})
+    
+    try:
+        query = text("SELECT * FROM public.get_devices(:user_id)")
+        result = connect.execute(query, {"user_id": session['userid']})
+        devices = result.fetchall()
+        
+        results = []
+        total_leaks = 0
+        
+        for device in devices:
+            device_id = device[0] if len(device) > 0 else None
+            serial_number = device[4] if len(device) > 4 else f'Устройство {device_id}'
+            current_value = float(device[7]) if len(device) > 7 and device[7] is not None else 0.0
+            
+            # Проверяем утечки
+            result = check_single_device_for_leaks(device_id, serial_number, current_value)
+            
+            if 'leak_count' in result and result['leak_count'] > 0:
+                total_leaks += result['leak_count']
+            
+            results.append({
+                "device_id": device_id,
+                "serial_number": serial_number,
+                "result": result
+            })
+        
+        return jsonify({
+            "success": True,
+            "total_devices": len(devices),
+            "total_leaks": total_leaks,
+            "results": results
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Ошибка: {e}"})
+    finally:
+        if connect:
+            close_connection(connect)
+
+# ============================================================================
+# ТЕСТОВЫЙ МАРШРУТ ДЛЯ ПРОВЕРКИ ВСЕХ УСТРОЙСТВ
+# ============================================================================
+
+@app.route('/test_all_leaks')
+def test_all_leaks():
+    """
+    Тестовый маршрут для проверки ВСЕХ устройств на утечки
+    """
+    if 'username' not in session:
+        return redirect(url_for('hello_world'))
 
     try:
-        query = text("SELECT email FROM users WHERE id = :user_id")
-        result = connect.execute(query, {"user_id": user_id})
-        user_data = result.fetchone()
-
-        if user_data and user_data.email:
-            # Отправляем email
-            success = email_sender.send_leak_alert(
-                user_email=user_data.email,
-                device_info=device_info,
-                leak_alerts=leak_alerts
-            )
-
-            if success:
-                logging.info(f"Leak notification sent to {user_data.email}")
-            else:
-                logging.error(f"Failed to send leak notification to {user_data.email}")
-
+        # Используем API для проверки всех устройств
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Тест всех устройств</title>
+            <script>
+                function checkAllDevices() {{
+                    document.getElementById('results').innerHTML = '<p>Проверяем все устройства...</p>';
+                    
+                    fetch('/check_all_devices')
+                        .then(response => response.json())
+                        .then(data => {{
+                            let html = '<h3>Результаты проверки:</h3>';
+                            html += '<p>Всего устройств: ' + data.total_devices + '</p>';
+                            html += '<p>Всего утечек: ' + data.total_leaks + '</p>';
+                            html += '<hr>';
+                            
+                            data.results.forEach(device => {{
+                                html += '<div style="margin: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">';
+                                html += '<strong>Устройство:</strong> ' + device.serial_number + '<br>';
+                                
+                                if (device.result.error) {{
+                                    html += '<span style="color: red;">Ошибка: ' + device.result.error + '</span>';
+                                }} else if (device.result.info) {{
+                                    html += '<span style="color: blue;">' + device.result.info + '</span>';
+                                }} else if (device.result.leak_count > 0) {{
+                                    html += '<span style="color: red; font-weight: bold;">Обнаружено утечек: ' + device.result.leak_count + '</span><br>';
+                                    
+                                    if (device.result.email_sent) {{
+                                        html += '<span style="color: green;">Email отправлен на: ' + device.result.email_address + '</span>';
+                                    }}
+                                }} else {{
+                                    html += '<span style="color: green;">Утечек не обнаружено</span>';
+                                }}
+                                
+                                html += '</div>';
+                            }});
+                            
+                            document.getElementById('results').innerHTML = html;
+                        }})
+                        .catch(error => {{
+                            document.getElementById('results').innerHTML = '<p style="color: red;">Ошибка: ' + error + '</p>';
+                        }});
+                }}
+            </script>
+        </head>
+        <body style="padding: 40px; font-family: Arial;">
+            <h1 style="color: blue;">ТЕСТ ВСЕХ УСТРОЙСТВ НА УТЕЧКИ</h1>
+            <p>Эта страница проверяет ВСЕ ваши устройства на наличие утечек.</p>
+            <p>При обнаружении утечек автоматически отправляется email.</p>
+            
+            <button onclick="checkAllDevices()" style="
+                padding: 15px 30px;
+                background: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 16px;
+                cursor: pointer;
+                margin: 20px 0;
+            ">
+                ПРОВЕРИТЬ ВСЕ УСТРОЙСТВА
+            </button>
+            
+            <div id="results" style="margin-top: 20px; padding: 20px; background: #f5f5f5; border-radius: 5px;"></div>
+            
+            <br><br>
+            <a href="/dashboard">Вернуться на панель управления</a>
+        </body>
+        </html>
+        """
+            
     except Exception as e:
-        logging.error(f"Error sending leak notification: {e}")
-    finally:
-        close_connection(connect)
+        return f"Ошибка: {e}"
 
 # ============================================================================
-# EMAIL TEST ENDPOINTS
+# ДОПОЛНИТЕЛЬНЫЕ МАРШРУТЫ
 # ============================================================================
 
-@app.route('/email_test')
-def email_test():
-    """Страница тестирования email системы"""
-    stats = email_sender.get_stats()
-    
-    return f'''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>FoxDen Email Test</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; padding: 20px; }}
-            .container {{ max-width: 800px; margin: 0 auto; }}
-            .success {{ color: green; font-weight: bold; }}
-            .error {{ color: red; }}
-            .btn {{ 
-                background: #3498db; color: white; padding: 10px 20px; 
-                text-decoration: none; border-radius: 5px; display: inline-block;
-                margin: 5px;
-            }}
-            .info-box {{ 
-                background: #f8f9fa; padding: 15px; border-radius: 5px; 
-                margin: 15px 0; border-left: 4px solid #3498db;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>FoxDen Email System Test</h1>
-            
-            <div class="info-box">
-                <h3>Статус системы:</h3>
-                <p>Включена: <span class="{'success' if stats['enabled'] else 'error'}">{'Да' if stats['enabled'] else 'Нет'}</span></p>
-                <p>Отправлено: <strong>{stats['sent']}</strong></p>
-                <p>Ошибок: <strong>{stats['failed']}</strong></p>
-                <p>Последняя отправка: <strong>{stats['last_success'] or 'Нет'}</strong></p>
-            </div>
-            
-            <div class="info-box">
-                <h3>Конфигурация:</h3>
-                <p>SMTP: {stats['config']['smtp_server']}:{stats['config']['smtp_port']}</p>
-                <p>Пользователь: {stats['config']['username']}</p>
-                <p>Отправитель: {stats['config']['sender']}</p>
-            </div>
-            
-            <div style="margin: 20px 0;">
-                <a href="/send_test_email" class="btn">Отправить тестовое письмо</a>
-                <a href="/dashboard" class="btn">Dashboard</a>
-                <a href="/" class="btn">Главная</a>
-            </div>
-            
-            <div class="info-box">
-                <h4>Инструкция:</h4>
-                <ol>
-                    <li>Нажмите "Отправить тестовое письмо"</li>
-                    <li>Проверьте почту: vladimir2.01.0.za@gmail.com</li>
-                    <li>В реальной работе письма отправляются автоматически при обнаружении утечек</li>
-                </ol>
-            </div>
-        </div>
-    </body>
-    </html>
-    '''
+@app.route('/email_stats')
+def email_stats():
+    """Возвращает статистику отправки email"""
+    try:
+        stats = email_sender.get_stats()
+        return jsonify(stats)
+    except:
+        return jsonify({"error": "Не удалось получить статистику"})
 
 @app.route('/send_test_email')
-def send_test_email_page():
-    """Отправляет тестовое письмо"""
-    test_email = "vladimir2.01.0.za@gmail.com"
-    
-    success = email_sender.send_test_email(test_email)
+def send_test_email():
+    """Отправляет тестовый email для проверки"""
+    success = email_sender.send_test_email()
     
     if success:
-        return f'''
+        return """
         <!DOCTYPE html>
         <html>
-        <head><title>Успех!</title></head>
+        <head><title>Тест Email</title></head>
         <body style="padding: 40px; font-family: Arial;">
-            <h1 style="color: green;">Тестовое письмо отправлено!</h1>
-            <p>На адрес: <strong>{test_email}</strong></p>
-            <p>Проверьте папку "Входящие" или "Спам".</p>
-            <a href="/email_test">Назад</a> | 
-            <a href="https://mail.google.com" target="_blank">Открыть Gmail</a>
+            <h1 style="color: green;">ТЕСТОВЫЙ EMAIL ОТПРАВЛЕН!</h1>
+            <p>Проверьте почту</p>
+            <br>
+            <a href="/dashboard">Вернуться на панель управления</a>
         </body>
         </html>
-        '''
+        """
     else:
-        return f'''
+        return """
         <!DOCTYPE html>
         <html>
-        <head><title>Ошибка</title></head>
+        <head><title>Тест Email</title></head>
         <body style="padding: 40px; font-family: Arial;">
-            <h1 style="color: red;">Ошибка отправки</h1>
-            <p>Не удалось отправить на: <strong>{test_email}</strong></p>
-            <p>Проверьте консоль сервера для деталей.</p>
-            <a href="/email_test">Назад</a>
+            <h1 style="color: red;">ОШИБКА ОТПРАВКИ ТЕСТОВОГО EMAIL</h1>
+            <p>Проверьте настройки SMTP в файле .env</p>
+            <br>
+            <a href="/dashboard">Вернуться на панель управления</a>
         </body>
         </html>
-        '''
+        """
+
+@app.route('/get_logs')
+def get_logs():
+    """Возвращает содержимое лог-файлов"""
+    if 'username' not in session:
+        return redirect(url_for('hello_world'))
+    
+    log_file = request.args.get('file', 'leak_notifications.log')
+    
+    try:
+        with open(log_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return f"<pre>{content}</pre>"
+    except FileNotFoundError:
+        return f"Файл {log_file} не найден"
+
+# ============================================================================
+# ЗАПУСК СЕРВЕРА
+# ============================================================================
 
 if __name__ == '__main__':
-    logging.info("Starting FoxDen server...")
+    logging.info("Запуск FoxDen сервера...")
     
-    # Тестирование email системы при запуске
+    # Проверка email системы
     if email_sender.enabled:
-        connection_test = email_sender.test_connection()
-        if connection_test:
-            logging.info("Email system: Connection test SUCCESS")
-        else:
-            logging.warning("Email system: Connection test FAILED")
+        logging.info("Email система доступна")
+        
+        # Тестовое письмо при запуске
+        try:
+            test_email = "fox.den.emailsander@gmail.com"
+            test_device = {
+                'serial_number': 'TEST-001',
+                'indicator': 100.0,
+                'step_increment': 10.0
+            }
+            test_alerts = [{
+                'message': 'Тестовое уведомление при запуске системы FoxDen',
+                'severity': 'medium',
+                'type': 'test',
+                'detected_at': datetime.now().strftime('%d.%m.%Y %H:%M')
+            }]
+            
+            success = email_sender.send_leak_alert(test_email, test_device, test_alerts)
+            if success:
+                logging.info("Тестовое письмо отправлено на %s", test_email)
+            else:
+                logging.warning("Не удалось отправить тестовое письмо")
+        except Exception as e:
+            logging.error("Ошибка тестовой отправки: %s", e)
     else:
-        logging.warning("Email system: DISABLED (set SMTP_USERNAME and SMTP_PASSWORD in .env)")
+        logging.warning("Email система отключена. Настройте .env файл")
     
-    app.run(debug=config.DEBUG_MODE, host='0.0.0.0', port=5000)
+    # Запускаем фоновый мониторинг
+    if email_sender.enabled:
+        monitor = start_background_monitoring(15)  # Проверка каждые 15 минут
+        logging.info("Фоновый мониторинг утечек запущен")
+    
+    # Запускаем сервер
+    logging.info("Сервер запускается на http://127.0.0.1:5000")
+    app.run(debug=config.DEBUG_MODE, host='127.0.0.1', port=5000)

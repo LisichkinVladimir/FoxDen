@@ -98,11 +98,6 @@
             border-radius: 10px;
             text-align: center;
         }
-        .stat-card h3 {
-            font-size: 1em;
-            margin-bottom: 10px;
-            opacity: 0.9;
-        }
         .stat-number {
             font-size: 2em;
             font-weight: bold;
@@ -231,12 +226,254 @@
             70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
             100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
         }
+        /* Кнопки проверки утечек */
+        .leak-check-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+        .leak-check-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .btn-leak-check {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-leak-check:hover {
+            background: linear-gradient(135deg, #2980b9, #1f618d);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .btn-leak-check-all {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        .btn-leak-check-all:hover {
+            background: linear-gradient(135deg, #c0392b, #a93226);
+        }
+        .check-result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        .check-result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .check-result.warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .check-result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .check-result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .check-result.leak-detected {
+            background: #ffeaea;
+            border: 2px solid #e74c3c;
+            color: #721c24;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .device-check-button {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .device-check-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        /* Глобальные стили для проверки */
+        .global-check-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid #e1e8ed;
+        }
+        .global-check-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+        }
+        .global-check-header h3 {
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+        .global-check-header p {
+            color: #7f8c8d;
+            font-size: 0.95em;
+            margin: 0;
+        }
+        .check-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .check-status.running {
+            color: #3498db;
+        }
+        .check-status.success {
+            color: #27ae60;
+        }
+        .check-status.error {
+            color: #e74c3c;
+        }
+        .check-details {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+        .device-check-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #95a5a6;
+        }
+        .device-check-item.success {
+            border-left-color: #27ae60;
+            background: #f0f9f0;
+        }
+        .device-check-item.warning {
+            border-left-color: #f39c12;
+            background: #fff8e1;
+        }
+        .device-check-item.error {
+            border-left-color: #e74c3c;
+            background: #ffeaea;
+        }
+        .device-check-item.leak {
+            border-left-color: #c0392b;
+            background: #ffeaea;
+            animation: pulse-bg 2s infinite;
+        }
+        @keyframes pulse-bg {
+            0% { background: #ffeaea; }
+            50% { background: #ffd6d6; }
+            100% { background: #ffeaea; }
+        }
+        .check-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .summary-card {
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            color: white;
+        }
+        .summary-card.total {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+        .summary-card.leaks {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        .summary-card.emails {
+            background: linear-gradient(135deg, #27ae60, #229954);
+        }
+        .summary-card.errors {
+            background: linear-gradient(135deg, #f39c12, #d68910);
+        }
+        .summary-number {
+            font-size: 2.2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .summary-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+        .btn-action {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: white;
+        }
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .btn-test {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        }
+        .btn-logs {
+            background: linear-gradient(135deg, #34495e, #2c3e50);
+        }
+        .btn-email {
+            background: linear-gradient(135deg, #1abc9c, #16a085);
+        }
+        .refresh-info {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🦊 FoxDen - Панель управления счетчиками</h1>
+            <h1>FoxDen - Панель управления счетчиками</h1>
             <div class="user-info">
                 Пользователь: <strong>{{ username }}</strong> | 
                 <a href="/">На главную</a> | 
@@ -260,6 +497,67 @@
                     <h3>Дата</h3>
                     <p class="stat-number">{{ current_time.strftime('%d.%m.%Y') }}</p>
                 </div>
+                <div class="stat-card">
+                    <h3>Счетчиков с утечками</h3>
+                    <p class="stat-number" id="leakCount">0</p>
+                </div>
+            </div>
+
+            <!-- ГЛОБАЛЬНАЯ ПРОВЕРКА ВСЕХ УСТРОЙСТВ -->
+            <div class="global-check-section">
+                <div class="global-check-header">
+                    <h3>Система автоматического контроля утечек</h3>
+                    <p>Проверяйте утечки вручную или доверьте автоматической системе</p>
+                </div>
+
+                <div class="check-summary">
+                    <div class="summary-card total">
+                        <div class="summary-label">Всего устройств</div>
+                        <div class="summary-number" id="totalDevices">{{ devices|length }}</div>
+                    </div>
+                    <div class="summary-card leaks">
+                        <div class="summary-label">Устройств с утечками</div>
+                        <div class="summary-number" id="devicesWithLeaks">0</div>
+                    </div>
+                    <div class="summary-card emails">
+                        <div class="summary-label">Email отправлено</div>
+                        <div class="summary-number" id="emailsSent">0</div>
+                    </div>
+                    <div class="summary-card errors">
+                        <div class="summary-label">Ошибок</div>
+                        <div class="summary-number" id="errorsCount">0</div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn-action btn-test" onclick="checkAllDevices()">
+                        <span style="font-size: 1.2em;">🔍</span>
+                        Проверить ВСЕ устройства
+                    </button>
+                    <a href="/send_test_email" class="btn-action btn-email">
+                        <span style="font-size: 1.2em;">✉️</span>
+                        Тест Email
+                    </a>
+                    <a href="/get_logs?file=leak_notifications.log" class="btn-action btn-logs" target="_blank">
+                        <span style="font-size: 1.2em;">📋</span>
+                        Просмотр логов
+                    </a>
+                </div>
+
+                <div class="check-status" id="globalCheckStatus" style="display: none;">
+                    <span id="checkStatusIcon">⏳</span>
+                    <span id="checkStatusText">Проверка устройств...</span>
+                </div>
+
+                <div class="check-details" id="checkDetails" style="display: none;">
+                    <!-- Здесь будут отображаться результаты проверки -->
+                </div>
+
+                <div class="refresh-info">
+                    <p>💡 <strong>Автоматическая проверка</strong> выполняется каждые 15 минут.</p>
+                    <p>💡 При обнаружении утечек система автоматически отправляет email уведомления.</p>
+                    <p>💡 Email отправляются не чаще 1 раза в 4 часа для каждого типа утечки.</p>
+                </div>
             </div>
 
             <h2>Ваши счетчики</h2>
@@ -280,11 +578,11 @@
                         
                         <div class="device-status {% if not device.state %}inactive{% endif %} {% if device.has_leaks %}leak-detected{% endif %}">
                             {% if device.has_leaks %}
-                                ⚠️ УТЕЧКА
+                                УТЕЧКА
                             {% elif device.state %}
-                                Активен ✓
+                                Активен
                             {% else %}
-                                Неактивен ✗
+                                Неактивен
                             {% endif %}
                         </div>
                     </div>
@@ -336,6 +634,16 @@
                         </div>
                     </div>
                     
+                    <!-- КНОПКА ПРОВЕРКИ КОНКРЕТНОГО УСТРОЙСТВА -->
+                    <div class="device-check-button">
+                        <button class="btn-leak-check" onclick="checkSingleDevice({{ device.id }}, '{{ device.serial_number }}')">
+                            <span style="font-size: 1.1em;">🔍</span>
+                            Проверить на утечки
+                        </button>
+                        
+                        <div class="device-check-result" id="check-result-{{ device.id }}"></div>
+                    </div>
+                    
                     <!-- Статистика изменений -->
                     <div class="chart-stats">
                         <div class="chart-stat">
@@ -385,7 +693,7 @@
                                 <canvas id="chart-cumulative-canvas-{{ device.id }}"></canvas>
                             </div>
                             <div class="chart-description">
-                                📈 Показывает накопленное значение счетчика с течением времени. 
+                                Показывает накопленное значение счетчика с течением времени. 
                                 Каждая точка - момент изменения показаний.
                             </div>
                         </div>
@@ -396,7 +704,7 @@
                                 <canvas id="chart-daily-canvas-{{ device.id }}"></canvas>
                             </div>
                             <div class="chart-description">
-                                📅 Показывает изменение показаний по дням. 
+                                Показывает изменение показаний по дням. 
                                 Высота столбца - прирост за день.
                             </div>
                         </div>
@@ -407,41 +715,43 @@
                                 <canvas id="chart-monthly-canvas-{{ device.id }}"></canvas>
                             </div>
                             <div class="chart-description">
-                                📆 Показывает изменение показаний по месяцам. 
+                                Показывает изменение показаний по месяцам. 
                                 Полезно для анализа сезонных тенденций.
                             </div>
                         </div>
                         
                         <!-- Данные для графиков -->
                         <script type="application/json" id="chart-data-{{ device.id }}">
-                            {
-                                "cumulative": {
-                                    "labels": {{ device.cumulative_labels|tojson }},
-                                    "values": {{ device.cumulative_values|tojson }}
-                                },
-                                "daily": {
-                                    "labels": {{ device.daily_labels|tojson }},
-                                    "values": {{ device.daily_values|tojson }}
-                                },
-                                "monthly": {
-                                    "labels": {{ device.monthly_labels|tojson }},
-                                    "values": {{ device.monthly_values|tojson }}
-                                },
-                                "step": {{ device.step_increment }},
-                                "current": {{ device.indicator }}
-                            }
+                            {{
+                                {
+                                    "cumulative": {
+                                        "labels": device.cumulative_labels,
+                                        "values": device.cumulative_values
+                                    },
+                                    "daily": {
+                                        "labels": device.daily_labels,
+                                        "values": device.daily_values
+                                    },
+                                    "monthly": {
+                                        "labels": device.monthly_labels,
+                                        "values": device.monthly_values
+                                    },
+                                    "step": device.step_increment,
+                                    "current": device.indicator
+                                }|tojson
+                            }}
                         </script>
                         
                     </div>
                     {% else %}
                     <div class="chart-container">
                         <div class="no-chart-data">
-                            📭 Нет данных об изменениях для этого счетчика
+                            Нет данных об изменениях для этого счетчика
                         </div>
                     </div>
                     {% endif %}
 
-                    <!-- БЛОК УТЕЧЕК - ПРАВИЛЬНОЕ МЕСТО -->
+                    <!-- БЛОК УТЕЧЕК -->
                     {% if device.leak_alerts %}
                     <div class="leak-alerts-section">
                         <div style="display: flex; align-items: center; margin-bottom: 15px;">
@@ -455,14 +765,13 @@
                                 align-items: center;
                                 animation: pulse 2s infinite;
                             ">
-                                ⚠️
                                 <span style="margin-left: 8px;">
                                     ОБНАРУЖЕНЫ УТЕЧКИ
                                     <span style="font-size: 0.8em; opacity: 0.9;">({{ device.leak_alerts|length }})</span>
                                 </span>
                             </div>
                             <div style="margin-left: 15px; font-size: 0.9em; color: #7f8c8d;">
-                                Обнаружено: {{ device.leak_alerts[0].detected_at }}
+                                Обнаружено: {{ device.leak_alerts[0].detected_at if device.leak_alerts else 'Н/Д' }}
                             </div>
                         </div>
                         
@@ -542,7 +851,7 @@
                                 font-size: 0.9em;
                             ">
                                 <div style="font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
-                                    🛠️ Рекомендуемые действия:
+                                    Рекомендуемые действия:
                                 </div>
                                 {{ alert.recommendation }}
                             </div>
@@ -550,14 +859,13 @@
                         {% endfor %}
                     </div>
                     {% endif %}
-                    <!-- КОНЕЦ БЛОКА УТЕЧЕК -->
                     
                 </div>
                 {% endfor %}
             </div>
             {% else %}
             <div class="no-data">
-                <h3>📭 Нет зарегистрированных счетчиков</h3>
+                <h3>Нет зарегистрированных счетчиков</h3>
                 <p>У вас пока не подключено ни одного счетчика.</p>
             </div>
             {% endif %}
@@ -578,6 +886,36 @@
         // Обновляем время
         updateLiveClock();
         setInterval(updateLiveClock, 1000);
+        
+        // Обновляем счетчики утечек
+        function updateLeakCount() {
+            const devicesWithLeaks = document.querySelectorAll('.device-status.leak-detected').length;
+            document.getElementById('leakCount').textContent = devicesWithLeaks;
+            document.getElementById('devicesWithLeaks').textContent = devicesWithLeaks;
+        }
+        
+        // Вызываем при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            updateLeakCount();
+            updateEmailStats();
+        });
+        
+        // Получение статистики email
+        function updateEmailStats() {
+            fetch('/email_stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.sent) {
+                        document.getElementById('emailsSent').textContent = data.sent;
+                    }
+                    if (data.failed) {
+                        document.getElementById('errorsCount').textContent = data.failed;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching email stats:', error);
+                });
+        }
         
         // Хранилище для графиков
         const chartInstances = {};
@@ -782,6 +1120,194 @@
                     }
                 }
             });
+        }
+        
+        // ============================================================================
+        // ФУНКЦИИ ДЛЯ ПРОВЕРКИ УТЕЧЕК
+        // ============================================================================
+        
+        // Проверка одного устройства
+        function checkSingleDevice(deviceId, serialNumber) {
+            const resultDiv = document.getElementById(`check-result-${deviceId}`);
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'device-check-result info';
+            resultDiv.innerHTML = '<p>⏳ Проверяем утечки для устройства ' + serialNumber + '...</p>';
+            
+            fetch(`/check_device/${deviceId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        resultDiv.className = 'device-check-result error';
+                        resultDiv.innerHTML = '<p>❌ Ошибка: ' + data.error + '</p>';
+                    } else if (data.info) {
+                        resultDiv.className = 'device-check-result info';
+                        resultDiv.innerHTML = '<p>ℹ️ ' + data.info + '</p>';
+                    } else if (data.leak_count > 0) {
+                        resultDiv.className = 'device-check-result leak-detected';
+                        let html = '<p style="font-weight: bold; font-size: 1.1em;">🚨 Обнаружено утечек: ' + data.leak_count + '</p>';
+                        
+                        if (data.email_sent) {
+                            html += '<p style="color: #27ae60; margin-top: 8px;">✅ Email отправлен на: ' + data.email_address + '</p>';
+                        } else {
+                            html += '<p style="color: #f39c12; margin-top: 8px;">ℹ️ Email не был отправлен (возможно, отправлялся недавно)</p>';
+                        }
+                        
+                        // Показываем детали утечек
+                        if (data.alerts && data.alerts.length > 0) {
+                            html += '<div style="margin-top: 15px; padding: 15px; background: #ffeaea; border-radius: 5px; border: 1px solid #e74c3c;">';
+                            html += '<p style="font-weight: bold; margin-bottom: 10px;">Детали утечек:</p>';
+                            data.alerts.forEach((alert, index) => {
+                                html += '<div style="margin: 10px 0; padding: 10px; background: white; border-radius: 4px; border-left: 4px solid ';
+                                html += alert.severity === 'critical' ? '#e74c3c' : alert.severity === 'high' ? '#f39c12' : '#f1c40f';
+                                html += ';">';
+                                html += '<strong>' + (index + 1) + '.</strong> ' + alert.message;
+                                html += '<br><small style="color: #7f8c8d;">Тип: ' + (alert.type || 'unknown') + ', Серьезность: ' + alert.severity + '</small>';
+                                html += '</div>';
+                            });
+                            html += '</div>';
+                        }
+                        
+                        resultDiv.innerHTML = html;
+                        
+                        // Обновляем статус устройства
+                        const deviceStatus = document.querySelector(`#device-${deviceId} .device-status`);
+                        deviceStatus.classList.add('leak-detected');
+                        deviceStatus.textContent = 'УТЕЧКА';
+                        
+                        // Обновляем счетчик утечек
+                        updateLeakCount();
+                        
+                    } else {
+                        resultDiv.className = 'device-check-result success';
+                        resultDiv.innerHTML = '<p>✅ Утечек не обнаружено</p>';
+                    }
+                    
+                    // Обновляем статистику email
+                    updateEmailStats();
+                })
+                .catch(error => {
+                    resultDiv.className = 'device-check-result error';
+                    resultDiv.innerHTML = '<p>❌ Ошибка проверки: ' + error.message + '</p>';
+                });
+        }
+        
+        // Проверка ВСЕХ устройств
+        function checkAllDevices() {
+            const statusDiv = document.getElementById('globalCheckStatus');
+            const checkStatusIcon = document.getElementById('checkStatusIcon');
+            const checkStatusText = document.getElementById('checkStatusText');
+            const detailsDiv = document.getElementById('checkDetails');
+            
+            // Показываем элементы
+            statusDiv.style.display = 'flex';
+            detailsDiv.style.display = 'block';
+            
+            // Сбрасываем состояние
+            statusDiv.className = 'check-status running';
+            checkStatusIcon.textContent = '⏳';
+            checkStatusText.textContent = 'Начинаем проверку всех устройств...';
+            detailsDiv.innerHTML = '<p>Инициализация проверки...</p>';
+            
+            // Счетчики
+            let totalDevices = 0;
+            let leaksFound = 0;
+            let emailsSent = 0;
+            let errorsCount = 0;
+            
+            // Получаем все устройства
+            fetch('/check_all_devices')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusDiv.className = 'check-status error';
+                        checkStatusIcon.textContent = '❌';
+                        checkStatusText.textContent = 'Ошибка проверки';
+                        detailsDiv.innerHTML = '<p style="color: #e74c3c;">Ошибка: ' + data.error + '</p>';
+                        return;
+                    }
+                    
+                    totalDevices = data.total_devices;
+                    leaksFound = data.total_leaks;
+                    
+                    let html = '<h4>Результаты проверки ' + totalDevices + ' устройств:</h4>';
+                    
+                    if (data.results && data.results.length > 0) {
+                        data.results.forEach(result => {
+                            const deviceResult = result.result;
+                            
+                            let itemClass = 'device-check-item';
+                            let icon = 'ℹ️';
+                            let statusText = '';
+                            
+                            if (deviceResult.error) {
+                                itemClass += ' error';
+                                icon = '❌';
+                                statusText = 'Ошибка: ' + deviceResult.error;
+                                errorsCount++;
+                            } else if (deviceResult.info) {
+                                itemClass += ' warning';
+                                icon = 'ℹ️';
+                                statusText = deviceResult.info;
+                            } else if (deviceResult.leak_count > 0) {
+                                itemClass += ' leak';
+                                icon = '🚨';
+                                statusText = 'Обнаружено утечек: ' + deviceResult.leak_count;
+                                
+                                if (deviceResult.email_sent) {
+                                    statusText += ' (Email отправлен)';
+                                    emailsSent++;
+                                }
+                            } else {
+                                itemClass += ' success';
+                                icon = '✅';
+                                statusText = 'Утечек не обнаружено';
+                            }
+                            
+                            html += '<div class="' + itemClass + '">';
+                            html += '<strong>' + icon + ' Устройство: ' + result.serial_number + ' (ID: ' + result.device_id + ')</strong><br>';
+                            html += '<span>' + statusText + '</span>';
+                            html += '</div>';
+                        });
+                    }
+                    
+                    detailsDiv.innerHTML = html;
+                    
+                    // Обновляем статус
+                    if (leaksFound > 0) {
+                        statusDiv.className = 'check-status error';
+                        checkStatusIcon.textContent = '🚨';
+                        checkStatusText.textContent = 'Обнаружены утечки! Проверено: ' + totalDevices + ' устройств, найдено утечек: ' + leaksFound;
+                    } else {
+                        statusDiv.className = 'check-status success';
+                        checkStatusIcon.textContent = '✅';
+                        checkStatusText.textContent = 'Проверка завершена. Утечек не обнаружено. Проверено: ' + totalDevices + ' устройств';
+                    }
+                    
+                    // Обновляем счетчики на панели
+                    document.getElementById('devicesWithLeaks').textContent = leaksFound;
+                    document.getElementById('emailsSent').textContent = 
+                        parseInt(document.getElementById('emailsSent').textContent) + emailsSent;
+                    document.getElementById('errorsCount').textContent = 
+                        parseInt(document.getElementById('errorsCount').textContent) + errorsCount;
+                    
+                    // Обновляем общий счетчик утечек
+                    updateLeakCount();
+                    updateEmailStats();
+                    
+                    // Автоматически скрываем через 10 секунд если нет утечек
+                    if (leaksFound === 0) {
+                        setTimeout(() => {
+                            statusDiv.style.display = 'none';
+                            detailsDiv.style.display = 'none';
+                        }, 10000);
+                    }
+                })
+                .catch(error => {
+                    statusDiv.className = 'check-status error';
+                    checkStatusIcon.textContent = '❌';
+                    checkStatusText.textContent = 'Ошибка при проверке устройств';
+                    detailsDiv.innerHTML = '<p style="color: #e74c3c;">Ошибка: ' + error.message + '</p>';
+                });
         }
     </script>
 </body>
