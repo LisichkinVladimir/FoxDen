@@ -6,8 +6,8 @@ from bleak import BleakScanner, BleakClient, BleakError
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
-    QHBoxLayout, QPushButton, QLabel, QStyle,
-    QLineEdit, QFrame, QScrollArea
+    QHBoxLayout, QPushButton, QLabel, QStyle, QDialogButtonBox,
+    QLineEdit, QFrame, QScrollArea, QListWidget, QDialog
 )
 from PyQt6.QtGui import QFont
 
@@ -116,6 +116,41 @@ class ParameterInputWidget(QWidget):
     def set_value(self, value):
         """Установить значение в поле ввода"""
         self.input_field.setText(value)
+
+class SelectDialog(QDialog):
+    """ Класс выбора сети """
+
+    def __init__(self, address: list):
+        super().__init__()
+        self.setWindowTitle("Выберете Bluetooth сеть")
+        self.setMinimumSize(400, 200)
+
+        self.list_widget = QListWidget(self)
+        for item in address:
+            self.list_widget.addItem(item['address'] + '-' + item['name'])
+
+        self.list_widget.itemDoubleClicked.connect(self.on_item_dbl_clicked)
+
+        QBtn = (
+                    QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+                )
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.list_widget)
+        layout.addWidget(self.buttonBox)
+        self.setLayout(layout)
+
+    def on_item_dbl_clicked(self, item):
+        """
+        Handler function called when an item is clicked.
+        The 'item' argument is the QListWidgetItem that was clicked.
+        """
+        print(f"Selected item text: {item.text()}")
+        self.accept()
 
 class ConnectionWidget(QWidget):
     """Виджет подключения к BLE устройству и настройки параметров"""
@@ -369,7 +404,25 @@ class ConnectionWidget(QWidget):
             address = await self.scan_for_devices()
 
             if address:
-                self.status_label.setText("Найдено устройство...")
+                if len(address) == 1:
+                    self.status_label.setText("Найдено устройство...")
+                    address = address[0]['address']
+                else:
+                    self.status_label.setText("Найдено несколько устройств...")
+                    selectDialog = SelectDialog(address)
+                    select_address = None
+                    if selectDialog.exec():
+                        selected_item = selectDialog.list_widget.currentItem()
+                        if selected_item is not None:
+                            name = selected_item.text()
+                            for item in address:
+                                if item['address'] in name:
+                                    select_address = item['address']
+                                    break
+                    if select_address is None:
+                        return
+                    else:
+                        address = select_address
 
                 # Подключение и чтение данных
                 success = await self.connect_and_read(address)
@@ -434,15 +487,16 @@ class ConnectionWidget(QWidget):
         self.close()
         QApplication.instance().quit()
 
-    async def scan_for_devices(self, timeout: float = 10) -> str:
+    async def scan_for_devices(self, timeout: float = 10) -> list:
         """Поиск ближайших BLE устройств"""
         self.status_label.setText("Сканирование...")
         devices = await BleakScanner.discover(timeout)
+        my_sevices = []
         for device in devices:
             if device.name and 'FoxDen' in device.name:
-                return device.address
+                my_sevices.append({'address': device.address, 'name': device.name})
 
-        return None
+        return my_sevices
 
     async def connect_and_read(self, address) -> bool:
         """Подключение к BLE устройству и чтение характеристик"""

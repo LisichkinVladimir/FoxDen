@@ -141,12 +141,17 @@ class DescriptorCallbacks : public NimBLEDescriptorCallbacks {
 
 void initBluetooth(void) {
     #ifdef DEBUG_MODE
-    Serial.printf("Запуск Bluetooth Server\n");
+    Serial.print("Запуск Bluetooth Server\n");
     #endif
 
     std::string mac_address;
     mac_address = initMacSHA256();
+    Disconnect();
+
     NimBLEDevice::init(BLUETOOTH_SERVER_NAME + mac_address);
+    //int power = NimBLEDevice::getPower();
+    //Serial.printf("Bluetooth power %d\n", power); 9
+    NimBLEDevice::setPower(3);
 
     /**
      * Set the IO capabilities of the device, each option will trigger a different pairing method.
