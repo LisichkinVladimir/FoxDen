@@ -1268,5 +1268,9 @@ if __name__ == '__main__':
         logging.info("Фоновый мониторинг утечек запущен")
 
     # Запускаем сервер
-    logging.info("Сервер запускается на http://127.0.0.1:5000")
-    app.run(debug=config.DEBUG_MODE, host='127.0.0.1', port=5000)
+    if config.DEBUG_MODE:
+        logging.info("Сервер запускается на http://127.0.0.1:5000")
+        app.run(debug=config.DEBUG_MODE, host='127.0.0.1', port=5000)
+    else:
+        logging.info("Сервер запускается в боевом режиме")
+        app.run()
