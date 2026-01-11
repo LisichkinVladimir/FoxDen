@@ -26,7 +26,9 @@
 			"--disable=C0103",
 			"--disable=W0102",
 			"--disable=W1510",
-			"--disable=C0201"
+			"--disable=C0201",
+			"--disable=C0301",
+			"--max-line-length=200"
 		],
 		"cSpell.language": "en,ru",
 		"cSpell.ignorePaths": [

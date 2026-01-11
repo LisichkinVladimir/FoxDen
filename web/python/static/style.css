@@ -53,17 +53,18 @@ body {
     margin-top: 30px;
 }
 
+/* УВЕЛИЧЕННЫЕ ШРИФТЫ КНОПОК */
 .btn {
     display: inline-block;
-    padding: 12px 30px;
-    margin: 5px;
+    padding: 14px 35px; /* Увеличили с 12px 30px */
+    margin: 8px; /* Увеличили с 5px */
     text-decoration: none;
     border-radius: 8px;
-    font-weight: 600;
+    font-weight: 700; /* Увеличили жирность с 600 */
     transition: all 0.3s ease;
     border: none;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 18px; /* Увеличили с 16px */
 }
 
 .btn-primary {
@@ -73,7 +74,8 @@ body {
 
 .btn-primary:hover {
     background: #2980b9;
-    transform: translateY(-2px);
+    transform: translateY(-3px); /* Увеличили эффект подъема */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15); /* Добавили тень при ховере */
 }
 
 .btn-secondary {
@@ -83,6 +85,8 @@ body {
 
 .btn-secondary:hover {
     background: #7f8c8d;
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
 }
 
 .btn-block {
@@ -182,13 +186,14 @@ body {
 /* Dashboard Styles */
 .user-info {
     margin-top: 15px;
-    font-size: 0.9em;
+    font-size: 0.95em; /* Немного увеличили */
 }
 
 .user-info a {
     color: #ecf0f1;
     text-decoration: none;
-    margin: 0 10px;
+    margin: 0 12px; /* Увеличили отступы */
+    font-size: 16px; /* Увеличили шрифт ссылок */
 }
 
 .user-info a:hover {
@@ -209,20 +214,42 @@ body {
 .stat-card {
     background: linear-gradient(135deg, #667eea, #764ba2);
     color: white;
-    padding: 25px;
-    border-radius: 10px;
+    padding: 30px; /* Увеличили с 25px */
+    border-radius: 12px; /* Увеличили скругление */
     text-align: center;
+    transition: all 0.3s ease !important;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2) !important;
 }
 
 .stat-card h3 {
-    font-size: 1em;
-    margin-bottom: 10px;
+    font-size: 1.2em !important; /* Увеличили с 1em */
+    margin-bottom: 15px !important; /* Увеличили отступ */
     opacity: 0.9;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+}
+
+.stat-card h3 i {
+    font-size: 1.3em !important; /* Увеличили иконки */
 }
 
 .stat-number {
-    font-size: 2em;
-    font-weight: bold;
+    font-size: 2.8em !important; /* Увеличили с 2em до 2.8em */
+    font-weight: 800 !important; /* Сделали очень жирным */
+    margin: 15px 0 !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.live-time {
+    font-size: 1.4em !important; /* Увеличили время с 1.2em */
+    font-family: 'Courier New', monospace;
+    letter-spacing: 3px !important; /* Увеличили расстояние между символами */
 }
 
 /* Devices Grid Styles */
@@ -251,15 +278,16 @@ body {
 .device-serial {
     font-weight: bold;
     color: #2c3e50;
-    font-size: 1.2em;
+    font-size: 1.3em; /* Увеличили с 1.2em */
 }
 
 .device-series {
     background: #3498db;
     color: white;
-    padding: 4px 8px;
+    padding: 5px 10px; /* Увеличили с 4px 8px */
     border-radius: 4px;
-    font-size: 0.9em;
+    font-size: 1em; /* Увеличили с 0.9em */
+    font-weight: bold;
 }
 
 .readings-table {
@@ -270,18 +298,20 @@ body {
 
 .readings-table th,
 .readings-table td {
-    padding: 8px 12px;
+    padding: 10px 14px; /* Увеличили с 8px 12px */
     text-align: left;
     border-bottom: 1px solid #ecf0f1;
+    font-size: 16px; /* Добавили размер шрифта */
 }
 
 .readings-table th {
     background: #f8f9fa;
     font-weight: 600;
+    font-size: 17px; /* Увеличили заголовки таблицы */
 }
 
 .current-value {
-    font-size: 1.5em;
+    font-size: 1.6em; /* Увеличили с 1.5em */
     font-weight: bold;
     color: #27ae60;
     text-align: center;
@@ -340,7 +370,29 @@ body {
     
     .user-info a {
         display: block;
-        margin: 5px 0;
+        margin: 8px 0; /* Увеличили отступы */
+        font-size: 17px; /* Увеличили для мобильных */
+    }
+    
+    /* Адаптивные кнопки для мобильных */
+    .btn {
+        font-size: 17px; /* Меньше чем на десктопе, но больше чем было */
+        padding: 12px 25px;
+        margin: 6px;
+    }
+    
+    /* Адаптивные статистические карточки */
+    .stat-card {
+        padding: 22px !important;
+    }
+    
+    .stat-number {
+        font-size: 2.4em !important;
+    }
+    
+    .live-time {
+        font-size: 1.3em !important;
+        letter-spacing: 2px !important;
     }
 }
 
@@ -360,6 +412,7 @@ body {
         display: none;
     }
 }
+
 /* Анимация пульсации для утечек */
 @keyframes leak-pulse {
     0% { transform: scale(1); opacity: 1; }
@@ -372,6 +425,9 @@ body {
     background: #e74c3c !important;
     animation: leak-pulse 2s infinite;
     position: relative;
+    font-size: 16px; /* Увеличили шрифт статуса */
+    padding: 6px 12px; /* Увеличили отступы */
+    font-weight: bold;
 }
 
 .device-status.leak-detected::after {
@@ -379,7 +435,7 @@ body {
     position: absolute;
     top: -5px;
     right: -5px;
-    font-size: 12px;
+    font-size: 14px; /* Увеличили иконку */
 }
 
 /* Анимация мигания для критических утечек */
@@ -409,6 +465,7 @@ body {
     background: white;
     border-radius: 4px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-size: 16px; /* Увеличили шрифт уведомлений */
 }
 
 .leak-notification.critical {
@@ -429,15 +486,16 @@ body {
 /* Иконка утечки */
 .leak-icon {
     display: inline-block;
-    width: 24px;
-    height: 24px;
+    width: 28px; /* Увеличили с 24px */
+    height: 28px; /* Увеличили с 24px */
     background: #e74c3c;
     color: white;
     border-radius: 50%;
     text-align: center;
-    line-height: 24px;
+    line-height: 28px; /* Увеличили с 24px */
     margin-right: 10px;
     font-weight: bold;
+    font-size: 16px; /* Добавили размер шрифта */
 }
 
 /* Кнопка действий при утечке */
@@ -445,27 +503,166 @@ body {
     display: inline-block;
     background: #3498db;
     color: white;
-    padding: 8px 15px;
+    padding: 10px 18px; /* Увеличили с 8px 15px */
     border-radius: 4px;
     text-decoration: none;
     font-weight: bold;
     margin-top: 10px;
     transition: background 0.3s;
+    font-size: 17px; /* Добавили размер шрифта */
 }
 
 .leak-action-btn:hover {
     background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
 }
 
-/* Адаптивность для мобильных */
+/* Дополнительные стили для кнопок в дашборде */
+.btn-leak-check,
+.btn-action,
+.btn-test,
+.btn-logs,
+.btn-email {
+    font-size: 18px !important;
+    padding: 16px 32px !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    margin: 10px !important;
+}
+
+/* Увеличиваем иконки в кнопках */
+.btn i,
+.btn-leak-check i,
+.btn-action i {
+    font-size: 20px !important;
+    margin-right: 10px;
+}
+
+/* СТАТИСТИЧЕСКИЕ КВАДРАТЫ С УВЕЛИЧЕННЫМИ ШРИФТАМИ */
+.summary-card {
+    padding: 25px 20px !important; /* Увеличили вертикальные отступы с 20px */
+    border-radius: 12px !important; /* Увеличили скругление с 8px */
+    text-align: center;
+    color: white;
+    min-width: 220px !important; /* Увеличили минимальную ширину с 200px */
+    flex: 1;
+    transition: all 0.3s ease !important;
+}
+
+.summary-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+.summary-card.total {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.summary-card.leaks {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.summary-card.emails {
+    background: linear-gradient(135deg, #27ae60, #229954);
+}
+
+.summary-card.errors {
+    background: linear-gradient(135deg, #f39c12, #d68910);
+}
+
+.summary-label {
+    font-size: 18px !important; /* Увеличили с 0.9em (примерно 14-16px) */
+    opacity: 0.9;
+    font-weight: 600 !important;
+    margin-bottom: 15px !important; /* Добавили отступ снизу */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important; /* Расстояние между иконкой и текстом */
+}
+
+.summary-label i {
+    font-size: 22px !important; /* Увеличили иконки */
+}
+
+.summary-number {
+    font-size: 3em !important; /* Увеличили с 2em до 3em - ОЧЕНЬ большой */
+    font-weight: 800 !important; /* Сделали еще жирнее */
+    margin: 15px 0 !important; /* Увеличили отступы с 10px */
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important; /* Добавили тень для читаемости */
+    line-height: 1.2 !important;
+}
+
+/* Пульсация для карточки с утечками */
+.summary-card.leaks .summary-number {
+    animation: pulse-number 2s infinite !important;
+}
+
+@keyframes pulse-number {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* Для лучшего отображения на мобильных устройствах */
+@media (max-width: 1200px) {
+    .summary-card {
+        min-width: 250px !important; /* Увеличили для мобильных */
+        padding: 22px 18px !important;
+    }
+    
+    .summary-label {
+        font-size: 16px !important;
+    }
+    
+    .summary-number {
+        font-size: 2.5em !important;
+    }
+}
+
 @media (max-width: 768px) {
+    .summary-card {
+        min-width: auto !important;
+        flex: 1 1 100% !important;
+        margin-bottom: 15px !important;
+        padding: 20px 15px !important;
+    }
+    
+    .summary-label {
+        font-size: 17px !important;
+    }
+    
+    .summary-number {
+        font-size: 2.8em !important; /* На мобильных оставляем крупным */
+    }
+    
+    /* Увеличиваем кнопки в мобильной версии */
+    .btn-leak-check,
+    .btn-action,
+    .btn-test,
+    .btn-logs,
+    .btn-email {
+        font-size: 17px !important;
+        padding: 14px 25px !important;
+    }
+    
+    /* Адаптивность для мобильных утечек */
     .leak-notification {
         padding: 10px;
-        font-size: 0.9em;
+        font-size: 0.95em; /* Немного уменьшим, но больше чем было */
     }
     
     .device-status.leak-detected {
-        font-size: 0.8em;
-        padding: 4px 8px;
+        font-size: 0.95em; /* Немного уменьшим, но больше чем было */
+        padding: 5px 10px;
+    }
+    
+    .leak-action-btn {
+        font-size: 16px;
+        padding: 9px 16px;
     }
 }
