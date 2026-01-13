@@ -868,27 +868,29 @@ def add_device_changes():
                     "moment": change.get('moment')
                 })
 
-                # АВТОМАТИЧЕСКАЯ ОТПРАВКА EMAIL В ОТДЕЛЬНОМ ПОТОКЕ
-                if device_id in device_info:
-                    # Получаем ОБНОВЛЕННОЕ значение после добавления изменения
-                    query_updated = text("SELECT indicator FROM devices WHERE id = :device_id")
-                    result_updated = connect.execute(query_updated, {"device_id": device_id})
-                    row_updated = result_updated.fetchone()
+        logging.info("add_device_changes commit")
+        
+        # АВТОМАТИЧЕСКАЯ ОТПРАВКА EMAIL В ОТДЕЛЬНОМ ПОТОКЕ
+        if device_id in device_info:
+            # Получаем ОБНОВЛЕННОЕ значение после добавления изменения
+            query_updated = text("SELECT indicator FROM devices WHERE id = :device_id")
+            result_updated = connect.execute(query_updated, {"device_id": device_id})
+            row_updated = result_updated.fetchone()
 
-                    if row_updated:
-                        updated_value = float(row_updated[0]) if row_updated[0] else 0.0
-                        serial_number = device_info[device_id]['serial_number']
+            if row_updated:
+                updated_value = float(row_updated[0]) if row_updated[0] else 0.0
+                serial_number = device_info[device_id]['serial_number']
 
-                        # Запускаем проверку утечек в отдельном потоке
-                        thread = threading.Thread(
-                            target=send_automatic_leak_email,
-                            args=(device_id, updated_value, serial_number)
-                        )
-                        thread.daemon = True
-                        thread.start()
+                # Запускаем проверку утечек в отдельном потоке
+                thread = threading.Thread(
+                    target=send_automatic_leak_email,
+                    args=(device_id, updated_value, serial_number)
+                )
+                thread.daemon = True
+                thread.start()
 
-                        logging.info("Запущена автоматическая проверка утечек для устройства %s", device_id)
-                        logging.info("Текущее значение: %s, Серийный номер: %s", updated_value, serial_number)
+                logging.info("Запущена автоматическая проверка утечек для устройства %s", device_id)
+                logging.info("Текущее значение: %s, Серийный номер: %s", updated_value, serial_number)
 
         result_data = {
             "error": {},
