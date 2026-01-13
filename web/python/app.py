@@ -860,6 +860,9 @@ def add_device_changes():
         # Выполняем добавление изменений
         query = text("call public.add_device_changes(:mac_address, :device_id, :moment)")
         logging.info("start add_device_changes")
+        if connect.in_transaction():
+            logging.info("in transaction")
+            connect.commit()
         with connect.begin():
             for change in changes:
                 device_id = change.get('device_id')
@@ -868,7 +871,6 @@ def add_device_changes():
                     "device_id": device_id,
                     "moment": change.get('moment')
                 })
-                connect.commit()
 
         logging.info("add_device_changes commit")
 
