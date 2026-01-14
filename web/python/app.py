@@ -861,7 +861,7 @@ def add_device_changes():
         query = text("call public.add_device_changes(:mac_address, :device_id, :moment)")
         logging.info("start add_device_changes")
         if connect.in_transaction():
-            logging.info("in transaction")
+            logging.info("in transaction before")
             connect.commit()
         with connect.begin():
             for change in changes:
@@ -871,7 +871,9 @@ def add_device_changes():
                     "device_id": device_id,
                     "moment": change.get('moment')
                 })
-
+        if connect.in_transaction():
+            logging.info("in transaction after")
+            connect.commit()
         logging.info("add_device_changes commit")
 
         # АВТОМАТИЧЕСКАЯ ОТПРАВКА EMAIL В ОТДЕЛЬНОМ ПОТОКЕ
