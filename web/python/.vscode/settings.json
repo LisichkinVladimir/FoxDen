@@ -4,5 +4,8 @@
 		"**/__pycache__": true,
         "**/*.bak": true 
 	  },
-	"pylint.args": ["--max-line-length=200"]
+	"pylint.args": [
+			"--max-line-length=200",
+			"--disable=W1203"
+		]
 }

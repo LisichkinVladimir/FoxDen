@@ -8,6 +8,75 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* Исправляем заголовок - делаем более компактным */
+        .header-top {
+            padding: 15px 30px; /* Уменьшаем отступы */
+        }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .fox-emoji {
+            font-size: 50px; /* Уменьшаем эмодзи */
+            line-height: 50px;
+        }
+        
+        .header-titles {
+            text-align: center;
+        }
+        
+        .main-title {
+            font-size: 2.2em; /* Уменьшаем заголовок */
+            margin: 5px 0;
+        }
+        
+        .sub-title {
+            font-size: 1em; /* Уменьшаем подзаголовок */
+            opacity: 0.9;
+        }
+        
+        /* Исправляем время - чтобы не вылезало */
+        .live-time-container {
+            display: inline-block;
+            padding: 5px 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        
+        .live-time {
+            font-size: 1.1em;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+        }
+        
+        /* Увеличиваем максимальное количество карточек в строке */
+        .stats-row, .check-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        /* Улучшаем графики */
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        .no-chart-data {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
         .device-list {
             display: flex;
             flex-direction: column;
@@ -480,21 +549,20 @@
             background: #f8f9fa;
             border-radius: 5px;
         }
-        /* Логотип лисы */
+        /* Логотип лисы - ЭМОДЗИ */
         .logo-container {
             display: flex;
             align-items: center;
             gap: 15px;
         }
-        .fox-logo {
-            width: 60px;
-            height: 60px;
-            position: relative;
+        .fox-emoji {
+            font-size: 60px;
+            line-height: 60px;
+            animation: fox-bounce 3s infinite;
         }
-        .fox-logo svg {
-            width: 100%;
-            height: 100%;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        @keyframes fox-bounce {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
         }
         /* Для мобильных устройств */
         @media (max-width: 1200px) {
@@ -517,20 +585,31 @@
 <body>
     <div class="container">
         <div class="header">
-        <div class="logo-container">
-            <div class="fox-logo">
-                <img src="https://media.istockphoto.com/id/502894286/ru/%D0%B2%D0%B5%D0%BA%D1%82%D0%BE%D1%80%D0%BD%D0%B0%D1%8F/fox-head-%D0%BE%D0%B1%D1%8A%D0%B5%D0%BC-%D0%B7%D0%BD%D0%B0%D1%87%D0%BE%D0%BA-%D0%BE%D1%80%D0%B0%D0%BD%D0%B6%D0%B5%D0%B2%D1%8B%D0%B9-%D0%BD%D0%B0-%D0%B1%D0%B5%D0%BB%D0%BE%D0%BC.jpg?s=612x612&w=0&k=20&c=FjZkcs556jRIB-4J9mrDTcUheZ954fhzD60RgfcsdPw=" 
-                    alt="FoxDen Logo"
-                    width="120" height="120"
-                    style="margin-top: 15px;">
+            <div class="header-top">
+                <div class="logo-container">
+                    <div class="fox-emoji">
+                        🦊
+                    </div>
+                    <div class="header-titles">
+                        <h1 class="main-title">FoxDen</h1>
+                        <h2 class="sub-title">Панель управления счетчиками</h2>
+                    </div>
+                </div>
             </div>
-            </div>
-                    <h1>FoxDen</h1>
-                    <h1>Панель управления счетчиками</h1>
-                    <div class="user-info">
-                        Пользователь: <strong>{{ username }}</strong> | 
-                        <a href="/"><i class="fas fa-home"></i> На главную</a> | 
-                        <a href="/logout"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+
+            <div class="user-info">
+                <div class="user-info-content">
+                    <span class="user-name">
+                        <i class="fas fa-user"></i> 
+                        Пользователь: <strong>{{ username }}</strong>
+                    </span>
+                    <div class="user-links">
+                        <a href="/" class="user-link">
+                            <i class="fas fa-home"></i> На главную
+                        </a>
+                        <a href="/logout" class="user-link">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
                     </div>
                 </div>
             </div>
@@ -545,9 +624,11 @@
                 </div>
                 <div class="stat-card">
                     <h3><i class="fas fa-clock"></i> Текущее время</h3>
-                    <p class="stat-number live-time" id="liveClock">
-                        {{ current_time.strftime('%H:%M:%S') }}
-                    </p>
+                    <div class="live-time-container">
+                        <p class="stat-number live-time" id="liveClock">
+                            {{ current_time.strftime('%H:%M:%S') }}
+                        </p>
+                    </div>
                 </div>
                 <div class="stat-card">
                     <h3><i class="fas fa-calendar-alt"></i> Дата</h3>
@@ -972,6 +1053,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             updateLeakCount();
             updateEmailStats();
+            initializeCharts();
         });
         
         // Получение статистики email
@@ -994,8 +1076,8 @@
         // Хранилище для графиков
         const chartInstances = {};
         
-        // Создаем графики после загрузки страницы
-        document.addEventListener('DOMContentLoaded', function() {
+        // Инициализация всех графиков
+        function initializeCharts() {
             const chartScripts = document.querySelectorAll('script[type="application/json"][id^="chart-data-"]');
             
             chartScripts.forEach(script => {
@@ -1012,7 +1094,7 @@
                     console.error('Error parsing chart data:', e);
                 }
             });
-        });
+        }
         
         // Функция переключения вкладок
         function showChartTab(deviceId, chartType) {
@@ -1034,20 +1116,53 @@
             
             const ctx = canvas.getContext('2d');
             
+            // Убеждаемся, что данные существуют
+            if (!chartData.cumulative || !chartData.cumulative.labels || !chartData.cumulative.values) {
+                console.error(`Нет данных для графика устройства ${deviceId}`);
+                return;
+            }
+            
+            const labels = chartData.cumulative.labels;
+            const values = chartData.cumulative.values;
+            
+            // Проверяем, есть ли достаточно данных
+            if (values.length < 2) {
+                canvas.parentElement.innerHTML = '<p class="no-chart-data">Недостаточно данных для построения графика (нужно минимум 2 точки)</p>';
+                return;
+            }
+            
             chartInstances[`cumulative-${deviceId}`] = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: chartData.cumulative.labels,
+                    labels: labels,
                     datasets: [{
                         label: 'Накопительное значение',
-                        data: chartData.cumulative.values,
+                        data: values,
                         borderColor: '#3498db',
                         backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                        borderWidth: 3,
+                        borderWidth: 2,
                         fill: true,
-                        tension: 0.2,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#3498db'
+                        tension: 0.1,
+                        pointRadius: function(context) {
+                            const index = context.dataIndex;
+                            const total = values.length;
+                            
+                            if (total > 30) {
+                                return index === 0 || index === total - 1 ? 4 : 2;
+                            } else if (total > 20) {
+                                return index === 0 || index === total - 1 ? 5 : 3;
+                            } else {
+                                return index === 0 || index === total - 1 ? 6 : 4;
+                            }
+                        },
+                        pointBackgroundColor: function(context) {
+                            const index = context.dataIndex;
+                            const total = values.length;
+                            // Выделяем первую и последнюю точки
+                            return index === 0 || index === total - 1 ? '#e74c3c' : '#3498db';
+                        },
+                        pointBorderColor: 'white',
+                        pointBorderWidth: 1
                     }]
                 },
                 options: {
@@ -1056,15 +1171,26 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Накопительный график изменений',
-                            font: { size: 14 }
+                            text: `Накопительный график (${values.length} точек)`,
+                            font: { 
+                                size: 14,
+                                weight: 'bold'
+                            }
                         },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return `Значение: ${context.parsed.y.toFixed(3)}`;
+                                    const index = context.dataIndex;
+                                    const label = context.dataset.label || '';
+                                    const value = context.parsed.y;
+                                    const pointNumber = index + 1;
+                                    
+                                    return `${label}: ${value.toFixed(3)} (точка ${pointNumber}/${values.length})`;
                                 }
                             }
+                        },
+                        legend: {
+                            display: false
                         }
                     },
                     scales: {
@@ -1072,13 +1198,23 @@
                             beginAtZero: false,
                             title: {
                                 display: true,
-                                text: 'Показания'
-                            }
+                                text: 'Показания',
+                                font: { weight: 'bold' }
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
                         },
                         x: {
                             title: {
                                 display: true,
-                                text: 'Время изменений'
+                                text: 'Изменения',
+                                font: { weight: 'bold' }
+                            },
+                            grid: { display: false },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 15
                             }
                         }
                     }
@@ -1093,13 +1229,28 @@
             
             const ctx = canvas.getContext('2d');
             
+            // Убеждаемся, что данные существуют
+            if (!chartData.daily || !chartData.daily.labels || !chartData.daily.values) {
+                console.error(`Нет данных для дневного графика устройства ${deviceId}`);
+                return;
+            }
+            
+            const labels = chartData.daily.labels;
+            const values = chartData.daily.values;
+            
+            // Проверяем, есть ли достаточно данных
+            if (values.length < 1) {
+                canvas.parentElement.innerHTML = '<p class="no-chart-data">Недостаточно данных для построения дневного графика</p>';
+                return;
+            }
+            
             chartInstances[`daily-${deviceId}`] = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: chartData.daily.labels,
+                    labels: labels,
                     datasets: [{
                         label: 'Прирост за день',
-                        data: chartData.daily.values,
+                        data: values,
                         backgroundColor: '#e74c3c',
                         borderColor: '#c0392b',
                         borderWidth: 1
@@ -1148,13 +1299,28 @@
             
             const ctx = canvas.getContext('2d');
             
+            // Убеждаемся, что данные существуют
+            if (!chartData.monthly || !chartData.monthly.labels || !chartData.monthly.values) {
+                console.error(`Нет данных для месячного графика устройства ${deviceId}`);
+                return;
+            }
+            
+            const labels = chartData.monthly.labels;
+            const values = chartData.monthly.values;
+            
+            // Проверяем, есть ли достаточно данных
+            if (values.length < 1) {
+                canvas.parentElement.innerHTML = '<p class="no-chart-data">Недостаточно данных для построения месячного графика</p>';
+                return;
+            }
+            
             chartInstances[`monthly-${deviceId}`] = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: chartData.monthly.labels,
+                    labels: labels,
                     datasets: [{
                         label: 'Прирост за месяц',
-                        data: chartData.monthly.values,
+                        data: values,
                         backgroundColor: '#2ecc71',
                         borderColor: '#27ae60',
                         borderWidth: 1
@@ -1383,56 +1549,56 @@
                     checkStatusText.textContent = 'Ошибка при проверке устройств';
                     detailsDiv.innerHTML = '<p style="color: #e74c3c;"><i class="fas fa-times-circle"></i> Ошибка: ' + error.message + '</p>';
                 });
-                    }
+        }
 
-                    // ============================================================================
-                    // ФУНКЦИЯ ДЛЯ ОТПРАВКИ ТЕСТОВОГО EMAIL С РЕАЛЬНЫМИ ДАННЫМИ
-                    // ============================================================================
-                    
-                    function sendRealTestEmail() {
-                        // Создаем уведомление
-                        let notification = document.createElement('div');
-                        notification.className = 'check-result info';
-                        notification.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Отправка тестового email с реальными данными...</p>';
-                        
-                        // Вставляем уведомление перед блоком action-buttons
-                        const globalCheckSection = document.querySelector('.global-check-section');
-                        const actionButtons = document.querySelector('.action-buttons');
-                        globalCheckSection.insertBefore(notification, actionButtons.nextSibling);
-                        
-                        fetch('/send_real_test_email')
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    notification.className = 'check-result success';
-                                    notification.innerHTML = `
-                                        <p><i class="fas fa-check-circle"></i> ${data.message}</p>
-                                        ${data.device ? `<p><i class="fas fa-microchip"></i> Устройство: ${data.device}</p>` : ''}
-                                        ${data.indicator ? `<p><i class="fas fa-tachometer-alt"></i> Показание: ${data.indicator}</p>` : ''}
-                                    `;
-                                } else {
-                                    notification.className = 'check-result error';
-                                    notification.innerHTML = `<p><i class="fas fa-times-circle"></i> ${data.error || 'Ошибка отправки'}</p>`;
-                                }
-                                
-                                // Удалить уведомление через 10 секунд
-                                setTimeout(() => {
-                                    if (notification.parentNode) {
-                                        notification.remove();
-                                    }
-                                }, 10000);
-                            })
-                            .catch(error => {
-                                notification.className = 'check-result error';
-                                notification.innerHTML = `<p><i class="fas fa-times-circle"></i> Ошибка: ${error.message}</p>`;
-                                
-                                setTimeout(() => {
-                                    if (notification.parentNode) {
-                                        notification.remove();
-                                    }
-                                }, 10000);
-                            });
+        // ============================================================================
+        // ФУНКЦИЯ ДЛЯ ОТПРАВКИ ТЕСТОВОГО EMAIL С РЕАЛЬНЫМИ ДАННЫМИ
+        // ============================================================================
+        
+        function sendRealTestEmail() {
+            // Создаем уведомление
+            let notification = document.createElement('div');
+            notification.className = 'check-result info';
+            notification.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Отправка тестового email с реальными данными...</p>';
+            
+            // Вставляем уведомление перед блоком action-buttons
+            const globalCheckSection = document.querySelector('.global-check-section');
+            const actionButtons = document.querySelector('.action-buttons');
+            globalCheckSection.insertBefore(notification, actionButtons.nextSibling);
+            
+            fetch('/send_real_test_email')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        notification.className = 'check-result success';
+                        notification.innerHTML = `
+                            <p><i class="fas fa-check-circle"></i> ${data.message}</p>
+                            ${data.device ? `<p><i class="fas fa-microchip"></i> Устройство: ${data.device}</p>` : ''}
+                            ${data.indicator ? `<p><i class="fas fa-tachometer-alt"></i> Показание: ${data.indicator}</p>` : ''}
+                        `;
+                    } else {
+                        notification.className = 'check-result error';
+                        notification.innerHTML = `<p><i class="fas fa-times-circle"></i> ${data.error || 'Ошибка отправки'}</p>`;
                     }
-                </script>    
+                    
+                    // Удалить уведомление через 10 секунд
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.remove();
+                        }
+                    }, 10000);
+                })
+                .catch(error => {
+                    notification.className = 'check-result error';
+                    notification.innerHTML = `<p><i class="fas fa-times-circle"></i> Ошибка: ${error.message}</p>`;
+                    
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.remove();
+                        }
+                    }, 10000);
+                });
+        }
+    </script>    
 </body>
 </html>

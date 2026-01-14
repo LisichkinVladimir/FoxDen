@@ -1,5 +1,5 @@
 # leak_detector.py
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 import logging
 
@@ -140,7 +140,9 @@ class LeakDetector:
         """Обнаружение аномально высокой скорости потребления"""
 
         # Анализируем последние 2 часа
-        two_hours_ago = datetime.now() - timedelta(hours=2)
+        dt_naive = datetime.now()
+        dt_naive_aware = dt_naive.replace(tzinfo=timezone.utc)
+        two_hours_ago = dt_naive_aware - timedelta(hours=2)
         recent_changes = [c for c in changes if c['moment'] >= two_hours_ago]
 
         if len(recent_changes) < 5:

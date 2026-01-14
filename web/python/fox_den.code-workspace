@@ -25,6 +25,7 @@
 		"pylint.args": [
 			"--disable=C0103",
 			"--disable=W0102",
+			"--disable=W1203",
 			"--disable=W1510",
 			"--disable=C0201",
 			"--disable=C0301",

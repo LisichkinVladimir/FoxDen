@@ -13,13 +13,53 @@ body {
     padding: 20px;
 }
 
+/* Добавить в начало файла или заменить существующий .container */
 .container {
-    max-width: 800px;
+    max-width: 1200px;  /* Было 800px */
     margin: 0 auto;
     background: white;
     border-radius: 15px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.1);
     overflow: hidden;
+}
+
+/* Увеличиваем ширину для статистических карточек */
+.stats-row, .check-summary {
+    display: flex;
+    gap: 15px;
+    margin: 25px 0;
+    flex-wrap: wrap;
+    justify-content: center; /* Центрируем карточки */
+}
+
+.stat-card, .summary-card {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    min-width: 200px;
+    flex: 1;
+    max-width: 280px; /* Ограничиваем максимальную ширину */
+}
+
+/* Исправляем заголовок - уменьшаем эмодзи лисы */
+.fox-emoji {
+    font-size: 50px; /* Было 60px */
+    line-height: 50px;
+    animation: fox-bounce 3s infinite;
+}
+
+/* Улучшаем отображение времени */
+.live-time {
+    font-size: 1.2em;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px; /* Было 3px */
+    padding: 5px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 5px;
+    display: inline-block;
+    min-width: 120px;
 }
 
 .header {
@@ -665,4 +705,16 @@ body {
         font-size: 16px;
         padding: 9px 16px;
     }
+}
+
+/* Стили для графиков */
+.chart-wrapper {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+canvas {
+    max-width: 100% !important;
+    height: auto !important;
 }
