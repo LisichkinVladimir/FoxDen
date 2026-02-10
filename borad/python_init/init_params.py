@@ -1,8 +1,10 @@
 """ Инициализация параметров ESP32 через Bluetooth """
 import sys
 import asyncio
+from typing import Optional
 from qasync import QEventLoop, asyncSlot
-from bleak import BleakScanner, BleakClient, BleakError
+from bleak import BleakScanner, BleakClient
+from bleak.exc import BleakError
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
@@ -160,8 +162,8 @@ class ConnectionWidget(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.client: BleakClient = None
-        self.address: str = None
+        self.client: Optional[BleakClient] = None
+        self.address: Optional[str] = None
         self.is_connected: bool = False
         self.parameter_widgets = {}
         self.init_ui()
@@ -339,7 +341,9 @@ class ConnectionWidget(QWidget):
         self.save_btn.clicked.connect(self.on_save_clicked)
 
         self.exit_btn = QPushButton("Выйти из программы")
-        icon = self.exit_btn.style().standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton)
+        style = self.exit_btn.style()
+        assert style is not None
+        icon = style.standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton)
         self.exit_btn.setIcon(icon)
         self.exit_btn.setFixedHeight(50)
         self.exit_btn.setEnabled(True)
@@ -448,7 +452,7 @@ class ConnectionWidget(QWidget):
         try:
             if self.client and self.client.is_connected:
                 await self.client.disconnect()
-                self.client = None
+            self.client = None
             self.address = None
 
             self.update_status(False)
@@ -480,29 +484,40 @@ class ConnectionWidget(QWidget):
         if success:
             self.status_label.setText("Параметры сохранены")
         else:
-            self.status_label.setText("Ошибка сохраненя параметров")
+            self.status_label.setText("Ошибка сохранения параметров")
 
-    def on_exit_clicked(self):
+    @asyncSlot()
+    async def on_exit_clicked(self):
         """Выход из программы"""
-        self.close()
-        QApplication.instance().quit()
+        try:
+            if self.client and self.client.is_connected:
+                await self.client.disconnect()
+            self.client = None
+            self.address = None
+        except BleakError as e:
+            print(f"Ошибка отключения: {e}")
 
-    async def scan_for_devices(self, timeout: float = 10) -> list:
+        self.close()
+        instance = QApplication.instance()
+        assert instance is not None
+        instance.quit()
+
+    async def scan_for_devices(self, timeout: float = 30) -> list:
         """Поиск ближайших BLE устройств"""
         self.status_label.setText("Сканирование...")
         devices = await BleakScanner.discover(timeout)
-        my_sevices = []
+        my_services = []
         for device in devices:
             if device.name and 'FoxDen' in device.name:
-                my_sevices.append({'address': device.address, 'name': device.name})
+                my_services.append({'address': device.address, 'name': device.name})
 
-        return my_sevices
+        return my_services
 
     async def connect_and_read(self, address) -> bool:
         """Подключение к BLE устройству и чтение характеристик"""
         try:
-            self.client = BleakClient(address)
-            await self.client.connect(timeout=15.0)
+            self.client = BleakClient(address, timeout = 15.0)
+            await self.client.connect()
 
             if self.client.is_connected:
                 print(f"Успешно подключено к {address}")
@@ -521,8 +536,11 @@ class ConnectionWidget(QWidget):
                         print(f"Прочитано {characteristic_info['name']}: {characteristic_str}")
                     except BleakError as e:
                         print(f"Не удалось прочитать {characteristic_info['name']}: {e}")
+                        return False
 
                 return True
+            else:
+                return False
 
         except BleakError as e:
             print(f"Ошибка подключения: {e}")
@@ -530,6 +548,8 @@ class ConnectionWidget(QWidget):
 
     async def ble_write(self) -> bool:
         """Запись параметров в """
+        if self.client is None:
+            return False
         if not self.client.is_connected:
             return False
         for characteristic_info in Characteristics:
@@ -589,6 +609,17 @@ class MainWindow(QMainWindow):
             self.connection_widget.status_label.setText("Подключено к ESP32")
         else:
             self.connection_widget.status_label.setText("Устройство не подключено")
+
+    @asyncSlot()
+    async def closeEvent(self, event):
+        event.accept()
+        client = self.connection_widget.client
+        try:
+            if client and client.is_connected:
+                await client.disconnect()
+        except BleakError as e:
+            print(f"Ошибка отключения: {e}")
+
 
 async def main_async():
     """Асинхронная основная функция"""

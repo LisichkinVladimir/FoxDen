@@ -1,6 +1,7 @@
 #include <inttypes.h>
 
 #include "main.h"
+#include "debug.h"
 #include "buffer.h"
 #include "Bounce2.h"
 #include "pulse_led.h"
@@ -17,7 +18,7 @@ void setup() {
   #ifdef DEBUG_MODE
   Serial.begin(115200);
   delay(1500);
-  Serial.println("Setup-----------------------------------");
+  DebugOutputLn("Setup-----------------------------------");
   //Serial.printf("Модель чипа: %s\n", ESP.getChipModel());
   //Serial.printf("Ревизия чипа: %u\n", ESP.getChipRevision());
   //Serial.printf("Версия SDK: %s\n", ESP.getSdkVersion());

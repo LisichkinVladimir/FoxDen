@@ -8,8 +8,8 @@ bool BluetoothConnected = false;
  **                       Remove as you see fit for your needs                        */
 class ServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
-    #ifdef DEBUG_MODE  
-    Serial.printf("Client address: %s\n", connInfo.getAddress().toString().c_str());
+    #ifdef DEBUG_MODE
+    DebugOutputLn("Client address: " + connInfo.getAddress().toString(), NOT_LOG);
     #endif
     /**
       *  We can use the connection handle here to ask for different connection parameters.
@@ -24,21 +24,22 @@ class ServerCallbacks : public NimBLEServerCallbacks {
 
   void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override {
     #ifdef DEBUG_MODE
-    Serial.printf("Client disconnected - start advertising\n");
+    DebugOutputLn("Client disconnected - start advertising", NOT_LOG);
     #endif
     NimBLEDevice::startAdvertising();
   }
 
   void onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo) override {
     #ifdef DEBUG_MODE
-    Serial.printf("MTU updated: %u for connection ID: %u\n", MTU, connInfo.getConnHandle());
+    std::string message = "MTU updated: " + std::to_string(MTU) + " for connection ID: " + std::to_string(connInfo.getConnHandle());
+    DebugOutputLn(message, NOT_LOG);
     #endif
   }
 
   /********************* Security handled here *********************/
   uint32_t onPassKeyDisplay() override {
     #ifdef DEBUG_MODE
-    Serial.printf("Server Passkey Display\n");
+    DebugOutputLn("Server Passkey Display");
     #endif
     /**
       * This should return a random 6 digit number for security
@@ -49,7 +50,7 @@ class ServerCallbacks : public NimBLEServerCallbacks {
 
   void onConfirmPassKey(NimBLEConnInfo& connInfo, uint32_t pass_key) override {
     #ifdef DEBUG_MODE
-    Serial.printf("The passkey YES/NO number: %" PRIu32 "\n", pass_key);
+    DebugOutputf("The passkey YES/NO number: %" PRIu32 "\n", pass_key);
     #endif
     /** Inject false if passkeys don't match. */
     NimBLEDevice::injectConfirmPasskey(connInfo, true);
@@ -60,13 +61,13 @@ class ServerCallbacks : public NimBLEServerCallbacks {
     if (!connInfo.isEncrypted()) {
         NimBLEDevice::getServer()->disconnect(connInfo.getConnHandle());
         #ifdef DEBUG_MODE
-        Serial.printf("Encrypt connection failed - disconnecting client\n");
+        DebugOutputE("Encrypt connection failed - disconnecting client\n");
         #endif
         return;
     }
 
     #ifdef DEBUG_MODE
-    Serial.printf("Secured connection to: %s\n", connInfo.getAddress().toString().c_str());
+    DebugOutputf("Secured connection to: %s\n", connInfo.getAddress().toString().c_str());
     #endif
   }
 } serverCallbacks;
@@ -74,10 +75,14 @@ class ServerCallbacks : public NimBLEServerCallbacks {
 /** Handler class for characteristic actions */
 class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
   void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override {
+    std::string uuid = pCharacteristic->getUUID().toString();
+    std::string value = pCharacteristic->getValue();
+    if (uuid == LAST_LOG) {
+      value = getLastMessage();
+      pCharacteristic->setValue(value);
+    }
     #ifdef DEBUG_MODE
-    Serial.printf("%s : onRead(), value: %s\n",
-                  pCharacteristic->getUUID().toString().c_str(),
-                  pCharacteristic->getValue().c_str());
+    DebugOutputLn(uuid + " : onRead(), value: " + value, NOT_LOG);
     #endif  
   }
 
@@ -85,10 +90,10 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
     std::string uuid = pCharacteristic->getUUID().toString();
     std::string value = pCharacteristic->getValue();
     #ifdef DEBUG_MODE
-    Serial.printf("%s : onWrite(), value: %s\n", uuid.c_str(), value.c_str());
+    DebugOutputf("%s : onWrite(), value: %s\n", uuid.c_str(), value.c_str());
     #endif  
-    FBLECharacteristics::setValue(uuid, value);
-    setPreference(FBLECharacteristics::getName(uuid), value);
+    FBLECharacteristics::setValue(uuid.c_str(), value);
+    setPreference(FBLECharacteristics::getName(uuid.c_str()), value);
   }
 
   /**
@@ -96,7 +101,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
     */
   void onStatus(NimBLECharacteristic* pCharacteristic, int code) override {
     #ifdef DEBUG_MODE
-    Serial.printf("Notification/Indication return code: %d, %s\n", code, NimBLEUtils::returnCodeToString(code));
+    DebugOutputf("Notification/Indication return code: %d, %s\n", code, NimBLEUtils::returnCodeToString(code));
     #endif  
   }
 
@@ -118,7 +123,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
     }
     str += std::string(pCharacteristic->getUUID());
 
-    Serial.printf("%s\n", str.c_str());
+    DebugOutputf("%s\n", str.c_str());
     #endif
   }
 } chrCallbacks;
@@ -128,30 +133,31 @@ class DescriptorCallbacks : public NimBLEDescriptorCallbacks {
   void onWrite(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
     #ifdef DEBUG_MODE
     std::string dscVal = pDescriptor->getValue();
-    Serial.printf("Descriptor written value: %s\n", dscVal.c_str());
+    DebugOutputf("Descriptor written value: %s\n", dscVal.c_str());
     #endif
   }
 
   void onRead(NimBLEDescriptor* pDescriptor, NimBLEConnInfo& connInfo) override {
     #ifdef DEBUG_MODE
-    Serial.printf("%s Descriptor read %s\n", pDescriptor->getUUID().toString().c_str(), pDescriptor->getValue().c_str());
+    DebugOutputf("%s Descriptor read %s\n", pDescriptor->getUUID().toString().c_str(), pDescriptor->getValue().c_str());
     #endif
   }
 } dscCallbacks; 
 
 void initBluetooth(void) {
     #ifdef DEBUG_MODE
-    Serial.print("Запуск Bluetooth Server\n");
+    DebugOutputLn("Запуск Bluetooth Server");
     #endif
 
-    std::string mac_address;
-    mac_address = initMacSHA256();
+    std::string mac_address = initMacSHA256();
     Disconnect();
 
     NimBLEDevice::init(BLUETOOTH_SERVER_NAME + mac_address);
-    //int power = NimBLEDevice::getPower();
-    //Serial.printf("Bluetooth power %d\n", power); 9
-    NimBLEDevice::setPower(3);
+    #ifdef DEBUG_MODE
+    int power = NimBLEDevice::getPower();
+    DebugOutputf("Bluetooth power %d\n", power);
+    #endif
+    NimBLEDevice::setPower(3); /** +3db */
 
     /**
      * Set the IO capabilities of the device, each option will trigger a different pairing method.
@@ -176,24 +182,17 @@ void initBluetooth(void) {
 
     NimBLEService* pService = pServer->createService(SERVICE_UUID);
 
-    FBLECharacteristics vCharacteristics = {
-        { WIFI_SSID_CHARACTERISTIC_UUID, "WIFI SSID" },
-        { WIFI_PASSWORD_CHARACTERISTIC_UUID, "WIFI Password"},
-        { SERVER_NAME_UUID, "Web server name"},
-        { ESP_MAC_ADDRESS, "ESP32 MAC address"}
-    };
-
-    for (byte i = 0; i < vCharacteristics.size(); ++i) {
-      FBLECharacteristic& characteristic = vCharacteristics[i];
+    for (byte i = 0; i < sizeof(BLECharacteristics)/sizeof(FBLECharacteristic); ++i) {
+      FBLECharacteristic& characteristic = BLECharacteristics[i];
       NimBLECharacteristic* pCharacteristic;
-      if (characteristic.uuid == ESP_MAC_ADDRESS)
+      if (characteristic.uuid == ESP_MAC_ADDRESS || characteristic.uuid == LAST_LOG)
         pCharacteristic = pService->createCharacteristic(characteristic.uuid, NIMBLE_PROPERTY::READ);
       else
         pCharacteristic = pService->createCharacteristic(characteristic.uuid, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
       pCharacteristic->setValue(FBLECharacteristics::getValue(characteristic.uuid));
       pCharacteristic->setCallbacks(&chrCallbacks);
       NimBLEDescriptor* pDescription = pCharacteristic->createDescriptor(BLEUUID((uint16_t)0x2901));
-      pDescription->setValue(characteristic.description.c_str());
+      pDescription->setValue(characteristic.description);
       //pDescription->setCallbacks(&chrCallbacks);
     }
 
@@ -212,6 +211,6 @@ void initBluetooth(void) {
     pAdvertising->start();
 
     #ifdef DEBUG_MODE
-    Serial.printf("Advertising Started\n");
+    DebugOutputLn("Advertising Started");
     #endif
 }

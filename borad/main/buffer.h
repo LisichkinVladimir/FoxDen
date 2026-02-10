@@ -20,7 +20,7 @@
 
 struct Pulse {
   long time_millis;
-  int pin;
+  uint8_t pin;
 };
 
 #define MAX_PULSE_SIZE 100
@@ -29,6 +29,6 @@ struct Pulse {
 #define MAX_PULSE_TIME_WHEN_SEND 60*1000*30
 
 void initBuffer(void);
-void putData2Buffer(int pin);
+void putData2Buffer(uint8_t pin);
 
 #endif

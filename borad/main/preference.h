@@ -5,6 +5,7 @@
 #include <Preferences.h>
 
 #include "main.h"
+#include "debug.h"
 #include "arduino_secrets.h"
 
 void initPreference(void);

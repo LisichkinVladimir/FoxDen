@@ -1,12 +1,12 @@
 #include "rest_api.h"
 
-std::string mac_hash = "";
+static char mac_hash[65] = {0};
 
 void generateSHA256(char* mac_address) {
   #ifdef DEBUG_MODE
   Serial.printf("Генерация MAC hash %s\n", mac_address);
   #endif
-  if (!mac_hash.empty())
+  if (strlen(mac_hash) != 0)
     return;
 
   std::vector<uint8_t> hash(32);
@@ -20,25 +20,30 @@ void generateSHA256(char* mac_address) {
 	mbedtls_md_finish(&ctx, hash.data());
 	mbedtls_md_free(&ctx);
 
-  char hash_address[65] = {0};
+  //char hash_address[65] = {0};
+  memset(mac_hash, 0, sizeof(mac_hash));
   char twoByte[2];
   for(byte i = 0, j = 0; i < hash.size(); i++, j+=2) {
     sprintf(twoByte, "%02x", hash[i]);
-    hash_address[j] = twoByte[0];
-    hash_address[j + 1] = twoByte[1];
+    mac_hash[j] = twoByte[0];
+    mac_hash[j + 1] = twoByte[1];
   }
-  for(byte i = 0; i < hash.size()*2; ++i) 
-    hash_address[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(hash_address[i])));
+
+  for (char* ch = mac_hash; *ch != '\0'; ++ch) {
+    if (*ch >= 'A' && *ch <= 'Z')
+      *ch += 32;
+  }
+
   #ifdef DEBUG_MODE
-  Serial.printf("MAC hash сгенерирован %s\n", hash_address);
+  Serial.printf("MAC hash сгенерирован %s\n", mac_hash);
   #endif
-  mac_hash = hash_address;
+  //mac_hash = hash_address;
 }
 
-std::string initMacSHA256(void) {
+const char* initMacSHA256(void) {
   char* mac_address = NULL;
   initMacAddress(&mac_address);
-  if (mac_hash.empty())
+  if (strlen(mac_hash) == 0)
     generateSHA256(mac_address);
   return mac_hash;
 }
@@ -60,10 +65,10 @@ bool connect2Web(char* mac_address) {
     return false;
   }
 
-  if (mac_hash.empty())
+  if (strlen(mac_hash) == 0)
     generateSHA256(mac_address);
   #ifdef DEBUG_MODE
-  Serial.printf("MAC hash %s\n", mac_hash.c_str());
+  Serial.printf("MAC hash %s\n", mac_hash);
   #endif
   
   WiFiClient client;
@@ -76,7 +81,7 @@ bool connect2Web(char* mac_address) {
     return false;
   }
   http.addHeader("Content-Type", "application/json");
-  std::string httpRequestData = "{\"mac_address\": \"" + mac_hash + "\"}";
+  std::string httpRequestData = "{\"mac_address\": \"" + std::string(mac_hash) + "\"}";
 
   int httpResponseCode = http.POST(httpRequestData.c_str());
   #ifdef DEBUG_MODE
