@@ -41,35 +41,37 @@ public:
   }
 
   static void setValue(const char* uuid, const std::string value) {
-    if (uuid == WIFI_SSID_CHARACTERISTIC_UUID)
+    if (strcmp(uuid, WIFI_SSID_CHARACTERISTIC_UUID) == 0)
       WIFI_SSID = value;
-    else if (uuid == WIFI_PASSWORD_CHARACTERISTIC_UUID)
+    else if (strcmp(uuid, WIFI_PASSWORD_CHARACTERISTIC_UUID) == 0)
       WIFI_PASSWORD = value;
-    else if (uuid == SERVER_NAME_UUID)
+    else if (strcmp(uuid, SERVER_NAME_UUID) == 0)
       SERVER_NAME = value;
   }
   
   static const std::string getValue(const char* uuid) {
-    if (uuid == WIFI_SSID_CHARACTERISTIC_UUID)
+    if (strcmp(uuid, WIFI_SSID_CHARACTERISTIC_UUID) == 0)
       return WIFI_SSID;
-    else if (uuid == WIFI_PASSWORD_CHARACTERISTIC_UUID)
+    else if (strcmp(uuid, WIFI_PASSWORD_CHARACTERISTIC_UUID) == 0)
       return WIFI_PASSWORD;
-    else if (uuid == SERVER_NAME_UUID)
+    else if (strcmp(uuid, SERVER_NAME_UUID) == 0)
       return SERVER_NAME;
-    else if (uuid == ESP_MAC_ADDRESS) {
-      std::string mac_address = initMacSHA256();
-      return mac_address;
+    else if (strcmp(uuid, ESP_MAC_ADDRESS) == 0) {
+      return initMacSHA256();
     }
-    else if (uuid == LAST_LOG) {
+    else if (strcmp(uuid, LAST_LOG) == 0) {
       return getLastMessage();
-    } else
+    } else {
+      Serial.printf("Invalid Characteristic getValue\n");
       outOfRange();
+    }
   }
 
   static const char* getName(const char* uuid) {
     for(int i = 0; i < sizeof(BLECharacteristics)/sizeof(FBLECharacteristic); i++)
-      if (BLECharacteristics[i].uuid == uuid)
+      if (strcmp(BLECharacteristics[i].uuid, uuid) == 0)
         return BLECharacteristics[i].description;
+    Serial.printf("Invalid Characteristic getName\n");
     outOfRange();
   }
 

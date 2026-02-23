@@ -457,7 +457,7 @@ class ConnectionWidget(QWidget):
 
             self.update_status(False)
 
-        except BleakError as e:
+        except (BleakError, OSError) as e:
             self.status_label.setText("Ошибка отключения")
             print(f"Ошибка отключения: {e}")
 
@@ -494,7 +494,7 @@ class ConnectionWidget(QWidget):
                 await self.client.disconnect()
             self.client = None
             self.address = None
-        except BleakError as e:
+        except (BleakError, OSError) as e:
             print(f"Ошибка отключения: {e}")
 
         self.close()
@@ -534,7 +534,7 @@ class ConnectionWidget(QWidget):
                         characteristic_info['value'] = characteristic_str
 
                         print(f"Прочитано {characteristic_info['name']}: {characteristic_str}")
-                    except BleakError as e:
+                    except (BleakError, OSError) as e:
                         print(f"Не удалось прочитать {characteristic_info['name']}: {e}")
                         return False
 
@@ -542,7 +542,7 @@ class ConnectionWidget(QWidget):
             else:
                 return False
 
-        except BleakError as e:
+        except (BleakError, OSError) as e:
             print(f"Ошибка подключения: {e}")
             return False
 
@@ -566,7 +566,7 @@ class ConnectionWidget(QWidget):
                     print(f"Write successful. Device response: {response}")
                 else:
                     print("Write successful (no response data returned).")
-            except BleakError as e:
+            except (BleakError, OSError) as e:
                 print(f"Error during write operation: {e}")
                 return False
         return True
@@ -617,7 +617,7 @@ class MainWindow(QMainWindow):
         try:
             if client and client.is_connected:
                 await client.disconnect()
-        except BleakError as e:
+        except (BleakError, OSError) as e:
             print(f"Ошибка отключения: {e}")
 
 
