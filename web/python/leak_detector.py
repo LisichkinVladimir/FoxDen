@@ -142,7 +142,10 @@ class LeakDetector:
         # Анализируем последние 2 часа
         dt_naive = datetime.now()
         dt_naive_aware = dt_naive.replace(tzinfo=timezone.utc)
-        two_hours_ago = dt_naive_aware - timedelta(hours=2)
+        if len(changes) >0 and changes[0]['moment'].naive_dt.tzinfo is not None:
+            two_hours_ago = dt_naive_aware - timedelta(hours=2)
+        else:
+            two_hours_ago = dt_naive - timedelta(hours=2)
         recent_changes = [c for c in changes if c['moment'] >= two_hours_ago]
 
         if len(recent_changes) < 5:

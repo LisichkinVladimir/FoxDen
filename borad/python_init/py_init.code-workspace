@@ -33,7 +33,9 @@
 			"py_init.code-workspace"
 		],
 		"cSpell.userWords": [
-			"foxden"
+			"foxden",
+			"qasync",
+			"Pixmap"
 		]
 	}	
 }

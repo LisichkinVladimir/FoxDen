@@ -1,8 +1,8 @@
 #include "web_wifi.h"
 
 // MAC адрес устройства
-char MacAddress[18] = {0};
-bool isReadMac = false;
+static char MacAddress[18] = {0};
+static bool isReadMac = false;
 
 bool readMacAddress() {
   if (isReadMac)

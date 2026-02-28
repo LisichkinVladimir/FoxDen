@@ -16,6 +16,11 @@
 #define MAX_LED_SIZE 50
 #define LED_MAX_DELAY 200
 
+#ifdef DEBUG_MODE
+// Отключим debug mode для pulse
+//#define DEBUG_MODE_PULSE
+#endif
+
 void initLed(void);
 void turnOnLed(int delay = DELAY, int count = 1);
 
