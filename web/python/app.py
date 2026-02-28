@@ -28,6 +28,40 @@ def json_error(error_code: int, error_message: str) -> wrappers.Response:
     }
     return jsonify(result)
 
+def is_admin(user_id: int) -> bool:
+    """Проверяет, является ли пользователь администратором"""
+    logging.info(f"=== Проверка прав администратора для user_id={user_id} ===")
+    
+    connect = connect_database()
+    if connect is None:
+        logging.error("Не удалось подключиться к БД")
+        return False
+
+    try:
+        # Проверяем наличие роли администратора
+        query = text("""
+            SELECT COUNT(*) 
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = :user_id 
+              AND r.code = 'administrator'
+              AND r.state = true
+        """)
+        logging.info(f"Выполняем запрос: {query}")
+        result = connect.execute(query, {"user_id": user_id})
+        count = result.scalar()
+        logging.info(f"Результат запроса: count={count}")
+        
+        is_admin_result = count > 0
+        logging.info(f"Пользователь {user_id} является администратором: {is_admin_result}")
+        
+        return is_admin_result
+    except Exception as e:
+        logging.error(f"Ошибка проверки прав администратора: {e}")
+        return False
+    finally:
+        close_connection(connect)
+
 # ============================================================================
 # СОЗДАНИЕ ПРИЛОЖЕНИЯ FLASK
 # ============================================================================
@@ -523,10 +557,13 @@ def start_background_monitoring(check_interval_minutes=15):
 @app.route('/')
 def hello_world():
     """ Стартовая страница сервера """
-    if 'username' in session:
-        return render_template('index.html', username=session['username'])
+    user_is_admin = False
+    if 'username' in session and 'userid' in session:
+        user_is_admin = is_admin(session['userid'])
+        logging.info(f"User {session['username']} (ID: {session['userid']}) is_admin: {user_is_admin}")
+        return render_template('index.html', username=session['username'], is_admin=user_is_admin)
     else:
-        return render_template('index.html', username=None)
+        return render_template('index.html', username=None, is_admin=False)
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -717,6 +754,7 @@ def dashboard():
                 'id': device_id,
                 'type_id': device[1] if len(device) > 1 else None,
                 'pin': device[3] if len(device) > 3 else None,
+                'mac_address': device[2] if len(device) > 2 else None,  # Добавляем MAC адрес
                 'serial_number': device[4] if len(device) > 4 else 'Без номера',
                 'scale_unit_id': device[5] if len(device) > 5 else None,
                 'step_increment': step_increment,
@@ -736,11 +774,15 @@ def dashboard():
 
             devices_data.append(device_data)
 
+        # Проверяем, является ли пользователь администратором
+        user_is_admin = is_admin(session['userid'])
+
         return render_template(
             'dashboard.html', 
             username=session['username'],
             devices=devices_data,
-            current_time=datetime.now()
+            current_time=datetime.now(),
+            is_admin=user_is_admin  # Передаем флаг администратора в шаблон
         )
 
     except SQLAlchemyError as ex:
@@ -809,6 +851,80 @@ def connect_device():
 # ============================================================================
 # КЛЮЧЕВОЙ МАРШРУТ - АВТОМАТИЧЕСКАЯ ОТПРАВКА ПРИ ИЗМЕНЕНИЯХ
 # ============================================================================
+@app.route('/debug_admin')
+def debug_admin():
+    """Диагностика прав администратора"""
+    result = "<h1>Диагностика администратора</h1>"
+    
+    # Проверяем сессию
+    result += "<h2>Данные сессии:</h2>"
+    result += f"<p>session.get('username'): {session.get('username')}</p>"
+    result += f"<p>session.get('userid'): {session.get('userid')}</p>"
+    result += f"<p>Все ключи в session: {list(session.keys())}</p>"
+    
+    if 'username' not in session:
+        result += "<p style='color:red'>❌ Пользователь не авторизован!</p>"
+        return result
+    
+    # Проверяем функцию is_admin
+    user_id = session.get('userid')
+    result += f"<h2>Проверка is_admin для user_id={user_id}:</h2>"
+    
+    try:
+        is_admin_result = is_admin(user_id)
+        result += f"<p>is_admin вернул: <strong>{is_admin_result}</strong></p>"
+    except Exception as e:
+        result += f"<p style='color:red'>Ошибка в is_admin: {e}</p>"
+    
+    # Прямой SQL запрос для проверки
+    result += "<h2>Прямой SQL запрос:</h2>"
+    connect = connect_database()
+    if connect:
+        try:
+            query = text("""
+                SELECT 
+                    u.id, 
+                    u.name, 
+                    r.code, 
+                    r.name as role_name
+                FROM users u
+                LEFT JOIN user_roles ur ON ur.user_id = u.id
+                LEFT JOIN roles r ON ur.role_id = r.id
+                WHERE u.id = :user_id
+            """)
+            result_rows = connect.execute(query, {"user_id": user_id})
+            rows = result_rows.fetchall()
+            
+            if rows:
+                result += "<table border='1' cellpadding='5'>"
+                result += "<tr><th>ID</th><th>Имя</th><th>Код роли</th><th>Название роли</th></tr>"
+                for row in rows:
+                    result += f"<tr>"
+                    result += f"<td>{row[0]}</td>"
+                    result += f"<td>{row[1]}</td>"
+                    result += f"<td>{row[2] if row[2] else 'Нет'}</td>"
+                    result += f"<td>{row[3] if row[3] else 'Нет'}</td>"
+                    result += f"</tr>"
+                result += "</table>"
+            else:
+                result += "<p>Пользователь не найден</p>"
+                
+        except Exception as e:
+            result += f"<p style='color:red'>Ошибка SQL: {e}</p>"
+        finally:
+            close_connection(connect)
+    else:
+        result += "<p style='color:red'>❌ Не удалось подключиться к БД</p>"
+    
+    # Проверяем, что рендерится в шаблоне
+    result += "<h2>Проверка шаблона:</h2>"
+    result += "<p>Перейдите на <a href='/'>главную страницу</a> и проверьте:</p>"
+    result += "<ul>"
+    result += "<li>Есть ли кнопка 'Администрирование'?</li>"
+    result += "<li>Посмотрите исходный код страницы (Ctrl+U) и найдите 'btn-admin'</li>"
+    result += "</ul>"
+    
+    return result
 
 @app.route('/add_device_changes', methods=['POST'])
 @jwt_required()
@@ -1108,6 +1224,362 @@ def test_all_leaks():
         """
     except Exception as e:
         return f"Ошибка: {e}"
+
+# ============================================================================
+# АДМИНИСТРАТИВНЫЕ МАРШРУТЫ 
+# ============================================================================
+
+@app.route('/admin')
+def admin_panel():
+    """Панель администрирования"""
+    if 'username' not in session:
+        logging.warning("Попытка доступа к админке без авторизации")
+        return redirect(url_for('hello_world'))
+
+    user_id = session.get('userid')
+    username = session.get('username')
+    
+    logging.info(f"Проверка прав администратора для пользователя {username} (ID: {user_id})")
+    
+    # Проверяем права администратора
+    if not is_admin(user_id):
+        logging.warning(f"Пользователь {username} (ID: {user_id}) не имеет прав администратора")
+        return render_template('error.html', error="У вас нет прав доступа к этой странице")
+
+    logging.info(f"Пользователь {username} (ID: {user_id}) имеет права администратора, открываем панель")
+
+    connect = connect_database()
+    if connect is None:
+        logging.error("Не удалось подключиться к БД для админ-панели")
+        return render_template('error.html', error="Ошибка подключения к БД")
+
+    try:
+        # Получаем всех пользователей
+        query_users = text("""
+            SELECT u.id, u.name, u.email, u.surname, u.state,
+                   (SELECT COUNT(*) FROM devices d WHERE d.user_id = u.id) as device_count
+            FROM users u
+            ORDER BY u.name
+        """)
+        users_result = connect.execute(query_users)
+        users = []
+        for row in users_result:
+            users.append({
+                'id': row[0],
+                'name': row[1],
+                'email': row[2],
+                'surname': row[3],
+                'state': row[4],
+                'device_count': row[5]
+            })
+
+        logging.info(f"Загружено {len(users)} пользователей")
+
+        # Получаем типы устройств
+        query_types = text("SELECT id, name FROM device_types WHERE state = true ORDER BY name")
+        types_result = connect.execute(query_types)
+        device_types = [{'id': row[0], 'name': row[1]} for row in types_result]
+
+        # Получаем единицы измерения
+        query_units = text("SELECT id, name FROM units ORDER BY name")
+        units_result = connect.execute(query_units)
+        units = [{'id': row[0], 'name': row[1]} for row in units_result]
+
+        return render_template(
+            'admin.html',
+            username=username,
+            total_users=len(users),
+            users=users,
+            device_types=device_types,
+            units=units
+        )
+
+    except Exception as e:
+        logging.error(f"Ошибка в admin_panel: {e}")
+        return render_template('error.html', error=f"Ошибка: {e}")
+    finally:
+        close_connection(connect)
+
+@app.route('/api/user/<int:user_id>')
+def get_user_api(user_id):
+    """API для получения данных пользователя"""
+    if 'username' not in session or not is_admin(session['userid']):
+        return jsonify({"error": "Доступ запрещен"}), 403
+
+    connect = connect_database()
+    if connect is None:
+        return jsonify({"error": "Ошибка подключения к БД"}), 500
+
+    try:
+        # Получаем данные пользователя
+        query_user = text("""
+            SELECT id, name, email, surname, state
+            FROM users
+            WHERE id = :user_id
+        """)
+        user_result = connect.execute(query_user, {"user_id": user_id})
+        user_row = user_result.fetchone()
+
+        if not user_row:
+            return jsonify({"error": "Пользователь не найден"}), 404
+
+        # Получаем устройства пользователя
+        query_devices = text("""
+            SELECT d.id, d.serial_number, d.mac_address, d.pin, d.step_increment,
+                   d.indicator, d.state, dt.name as type_name, d.type_id,
+                   u.name as unit_name, d.scale_unit_id
+            FROM devices d
+            LEFT JOIN device_types dt ON d.type_id = dt.id
+            LEFT JOIN units u ON d.scale_unit_id = u.id
+            WHERE d.user_id = :user_id
+            ORDER BY d.serial_number
+        """)
+        devices_result = connect.execute(query_devices, {"user_id": user_id})
+
+        devices = []
+        for row in devices_result:
+            devices.append({
+                'id': row[0],
+                'serial_number': row[1],
+                'mac_address': row[2],
+                'pin': row[3],
+                'step_increment': float(row[4]) if row[4] else None,
+                'indicator': float(row[5]) if row[5] else None,
+                'state': row[6],
+                'type_name': row[7],
+                'type_id': row[8],
+                'unit_name': row[9],
+                'scale_unit_id': row[10]
+            })
+
+        return jsonify({
+            'id': user_row[0],
+            'name': user_row[1],
+            'email': user_row[2],
+            'surname': user_row[3],
+            'state': user_row[4],
+            'devices': devices
+        })
+
+    except Exception as e:
+        logging.error(f"Ошибка в get_user_api: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        close_connection(connect)
+
+@app.route('/api/device/<int:device_id>')
+def get_device_api(device_id):
+    """API для получения данных устройства"""
+    if 'username' not in session or not is_admin(session['userid']):
+        return jsonify({"error": "Доступ запрещен"}), 403
+
+    connect = connect_database()
+    if connect is None:
+        return jsonify({"error": "Ошибка подключения к БД"}), 500
+
+    try:
+        query = text("""
+            SELECT id, type_id, mac_address, pin, serial_number,
+                   scale_unit_id, step_increment, indicator, user_id, state
+            FROM devices
+            WHERE id = :device_id
+        """)
+        result = connect.execute(query, {"device_id": device_id})
+        row = result.fetchone()
+
+        if not row:
+            return jsonify({"error": "Устройство не найдено"}), 404
+
+        return jsonify({
+            'id': row[0],
+            'type_id': row[1],
+            'mac_address': row[2],
+            'pin': row[3],
+            'serial_number': row[4],
+            'scale_unit_id': row[5],
+            'step_increment': float(row[6]) if row[6] else None,
+            'indicator': float(row[7]) if row[7] else None,
+            'user_id': row[8],
+            'state': row[9]
+        })
+
+    except Exception as e:
+        logging.error(f"Ошибка в get_device_api: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        close_connection(connect)
+
+@app.route('/api/save_user', methods=['POST'])
+def save_user_api():
+    """API для сохранения пользователя"""
+    if 'username' not in session or not is_admin(session['userid']):
+        return jsonify({"error": "Доступ запрещен"}), 403
+
+    data = request.json
+    connect = connect_database()
+    if connect is None:
+        return jsonify({"error": "Ошибка подключения к БД"}), 500
+
+    try:
+        user_id = data.get('user_id')
+        name = data.get('username')
+        email = data.get('email')
+        surname = data.get('full_name')
+        state = data.get('state') in [True, 'true', 'on', 1]
+
+        if user_id:
+            # Обновляем существующего пользователя
+            query = text("""
+                UPDATE users 
+                SET name = :name, email = :email, surname = :surname, state = :state
+                WHERE id = :user_id
+            """)
+            connect.execute(query, {
+                "user_id": user_id,
+                "name": name,
+                "email": email,
+                "surname": surname,
+                "state": state
+            })
+            connect.commit()
+        else:
+            # Создаем нового пользователя с временным паролем
+            temp_password = "changeme"
+            query = text("""
+                INSERT INTO users (name, email, surname, psw, state)
+                VALUES (:name, :email, :surname, md5(:password), :state)
+                RETURNING id
+            """)
+            result = connect.execute(query, {
+                "name": name,
+                "email": email,
+                "surname": surname,
+                "password": temp_password,
+                "state": state
+            })
+            user_id = result.fetchone()[0]
+            connect.commit()
+
+        return jsonify({"success": True, "user_id": user_id})
+
+    except Exception as e:
+        connect.rollback()
+        logging.error(f"Ошибка в save_user_api: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        close_connection(connect)
+
+@app.route('/api/save_device', methods=['POST'])
+def save_device_api():
+    """API для сохранения устройства"""
+    if 'username' not in session or not is_admin(session['userid']):
+        return jsonify({"error": "Доступ запрещен"}), 403
+
+    data = request.json
+    connect = connect_database()
+    if connect is None:
+        return jsonify({"error": "Ошибка подключения к БД"}), 500
+
+    try:
+        device_id = data.get('device_id')
+        type_id = data.get('type_id')
+        mac_address = data.get('mac_address')
+        pin = data.get('pin')
+        serial_number = data.get('serial_number')
+        scale_unit_id = data.get('scale_unit_id')
+        step_increment = float(data.get('step_increment', 0))
+        indicator = float(data.get('indicator', 0))
+        user_id = data.get('user_id')
+        state = data.get('state') in [True, 'true', 'on', 1]
+
+        if device_id:
+            # Обновляем существующее устройство
+            query = text("""
+                UPDATE devices 
+                SET type_id = :type_id, mac_address = :mac_address, pin = :pin,
+                    serial_number = :serial_number, scale_unit_id = :scale_unit_id,
+                    step_increment = :step_increment, indicator = :indicator,
+                    state = :state
+                WHERE id = :device_id
+            """)
+            connect.execute(query, {
+                "device_id": device_id,
+                "type_id": type_id,
+                "mac_address": mac_address,
+                "pin": pin,
+                "serial_number": serial_number,
+                "scale_unit_id": scale_unit_id,
+                "step_increment": step_increment,
+                "indicator": indicator,
+                "state": state
+            })
+        else:
+            # Создаем новое устройство
+            query = text("""
+                INSERT INTO devices (type_id, mac_address, pin, serial_number,
+                                   scale_unit_id, step_increment, indicator, user_id, state)
+                VALUES (:type_id, :mac_address, :pin, :serial_number,
+                       :scale_unit_id, :step_increment, :indicator, :user_id, :state)
+            """)
+            connect.execute(query, {
+                "type_id": type_id,
+                "mac_address": mac_address,
+                "pin": pin,
+                "serial_number": serial_number,
+                "scale_unit_id": scale_unit_id,
+                "step_increment": step_increment,
+                "indicator": indicator,
+                "user_id": user_id,
+                "state": state
+            })
+
+        connect.commit()
+        return jsonify({"success": True})
+
+    except Exception as e:
+        connect.rollback()
+        logging.error(f"Ошибка в save_device_api: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        close_connection(connect)
+
+@app.route('/api/change_password', methods=['POST'])
+def change_password_api():
+    """API для изменения пароля пользователя"""
+    if 'username' not in session or not is_admin(session['userid']):
+        return jsonify({"error": "Доступ запрещен"}), 403
+
+    data = request.json
+    user_id = data.get('user_id')
+    password = data.get('password')
+
+    if not user_id or not password:
+        return jsonify({"error": "Не указан пользователь или пароль"}), 400
+
+    connect = connect_database()
+    if connect is None:
+        return jsonify({"error": "Ошибка подключения к БД"}), 500
+
+    try:
+        query = text("""
+            UPDATE users 
+            SET psw = md5(:password)
+            WHERE id = :user_id
+        """)
+        connect.execute(query, {
+            "user_id": user_id,
+            "password": password
+        })
+        connect.commit()
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        connect.rollback()
+        logging.error(f"Ошибка в change_password_api: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        close_connection(connect)
 
 # ============================================================================
 # ДОПОЛНИТЕЛЬНЫЕ МАРШРУТЫ

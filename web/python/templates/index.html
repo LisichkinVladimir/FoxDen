@@ -25,6 +25,70 @@
         .header-titles {
             text-align: center;
         }
+        /* Стили для подвала */
+        .footer {
+            margin-top: 40px;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            border-top: 4px solid #3498db;
+        }
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .footer h3 {
+            color: #3498db;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        .footer p {
+            line-height: 1.6;
+            margin-bottom: 15px;
+            color: #ecf0f1;
+        }
+        .footer ul {
+            list-style: none;
+            padding: 0;
+        }
+        .footer li {
+            margin-bottom: 12px;
+            padding-left: 25px;
+            position: relative;
+            color: #ecf0f1;
+        }
+        .footer li:before {
+            content: "✓";
+            color: #2ecc71;
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+        .footer-highlight {
+            background: rgba(52, 152, 219, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #3498db;
+        }
+        .footer .quote {
+            font-style: italic;
+            color: #bdc3c7;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #7f8c8d;
+        }
+        /* Стили для кнопки администрирования */
+        .admin-button {
+            margin-top: 15px;
+        }
+        .btn-admin {
+            background: linear-gradient(135deg, #e67e22, #d35400);
+            color: white;
+        }
+        .btn-admin:hover {
+            background: linear-gradient(135deg, #d35400, #b64900);
+        }
     </style>
 </head>
 <body>
@@ -50,6 +114,11 @@
                 
                 <div class="actions">
                     <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Панель управления</a>
+                    
+                    {% if is_admin %}
+                    <a href="/admin" class="btn btn-admin">Администрирование</a>
+                    {% endif %}
+                    
                     <a href="{{ url_for('logout') }}" class="btn btn-secondary">Выйти из системы</a>
                 </div>
             </div>
@@ -80,6 +149,29 @@
                 </form>
             </div>
         {% endif %}
+    </div>
+
+    <!-- ПОДВАЛ С ОПИСАНИЕМ СИСТЕМЫ -->
+    <div class="footer">
+        <div class="footer-content">
+            <h3>🦊 «FoxDen»: Доступная «умная» система учёта ресурсов с анализом и контролем утечек</h3>
+            
+            <p>FoxDen трансформирует любой действующий прибор учета воды или газа, оборудованный импульсным выходом, в "умный". Не нужно дополнительных трат на замену старого прибора учета.</p>
+            
+            <div class="footer-highlight">
+                <p>Устройство на базе микроконтроллера подключается к любому импульсному прибору учёта ресурсов и анализирует шаблон потребления пользователя. Разработанный алгоритм программы в реальном времени выявляет аномалии, что позволяет обнаружить утечки, которые иногда бывают скрытыми, и информировать пользователя.</p>
+            </div>
+            
+            <h3>Ключевые преимущества, которые оценят пользователи:</h3>
+            <ul>
+                <li>✅ Простая установка устройства и настройка через Bluetooth</li>
+                <li>✅ Отсутствие "ручного" снятия показаний, что исключает необходимость физического доступа к прибору учета и вероятность ошибки</li>
+                <li>✅ Не требуется замена существующих счётчиков, подходит для любых действующих приборов учета с импульсным выходом</li>
+                <li>✅ Устройство работает в фоновом режиме и обеспечивает круглосуточный мониторинг без участия пользователя и информирование по e-mail</li>
+            </ul>
+            
+            <p class="quote">«Экономьте ресурсы и будьте уверены в безопасности вашего дома с FoxDen»</p>
+        </div>
     </div>
 </body>
 </html>

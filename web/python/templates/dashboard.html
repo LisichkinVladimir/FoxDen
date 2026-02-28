@@ -746,14 +746,20 @@
                         </tr>
                         <tr>
                             <td>
+                                <span class="info-label"><i class="fas fa-network-wired"></i> MAC адрес:</span><br>
+                                <strong>{{ device.mac_address or 'Н/Д' }}</strong>
+                            </td>
+                            <td>
                                 <span class="info-label"><i class="fas fa-ruler"></i> Шаг измерения:</span><br>
                                 <strong>{{ "%.3f"|format(device.step_increment) }}</strong>
                             </td>
+                        </tr>
+                        <tr>
                             <td>
                                 <span class="info-label"><i class="fas fa-weight"></i> Единица измерения:</span><br>
                                 <strong>
                                     {% if device.scale_unit_id == 1 %}
-                                        <i class="fas fa-cube"></i> кубический метр (m³)
+                                        <i class="fas fa-cube"></i> кубический метр (м³)
                                     {% else %}
                                         Ед. #{{ device.scale_unit_id or 'Н/Д' }}
                                     {% endif %}

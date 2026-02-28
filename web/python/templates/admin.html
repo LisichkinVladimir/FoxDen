@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Администрирование - FoxDen</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .user-info {
+            margin-top: 15px;
+            font-size: 1em;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .user-info a {
+            color: #ecf0f1;
+            text-decoration: none;
+            margin: 0 10px;
+            transition: color 0.3s;
+        }
+
+        .user-info a:hover {
+            color: #3498db;
+        }
+
+        .admin-container {
+            padding: 30px;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #3498db;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .admin-title {
+            color: #2c3e50;
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-new-user {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-new-user:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            display: inline-block;
+            min-width: 250px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stats-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stats-number {
+            font-size: 2.8em;
+            font-weight: 800;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .users-table th {
+            background: #34495e;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .users-table td {
+            padding: 15px;
+            border-bottom: 1px solid #ecf0f1;
+            vertical-align: middle;
+        }
+
+        .users-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .users-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .btn-edit {
+            background: #3498db;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-edit:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .device-count {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 1.2em;
+        }
+
+        .back-link {
+            margin-top: 20px;
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 1.1em;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+
+        /* Модальные окна */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 50px auto;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 900px;
+            width: 95%;
+            position: relative;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+        }
+
+        .modal-header h2 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 1.8em;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #7f8c8d;
+            transition: color 0.3s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .close-modal:hover {
+            color: #e74c3c;
+            background: #f8f9fa;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"],
+        .form-group input[type="number"],
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #ecf0f1;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #ecf0f1;
+            flex-wrap: wrap;
+        }
+
+        .btn-save {
+            background: #27ae60;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-save:hover {
+            background: #229954;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn-cancel {
+            background: #95a5a6;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-cancel:hover {
+            background: #7f8c8d;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn-change-password {
+            background: #f39c12;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            margin-left: auto;
+        }
+
+        .btn-change-password:hover {
+            background: #e67e22;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .devices-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #3498db;
+        }
+
+        .devices-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.4em;
+        }
+
+        .btn-add-device {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-add-device:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .devices-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .devices-table th {
+            background: #34495e;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .devices-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .devices-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .info-message {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #bee5eb;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-message i {
+            font-size: 1.2em;
+        }
+
+        @media (max-width: 768px) {
+            .admin-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .btn-new-user {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .users-table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .btn-change-password {
+                margin-left: 0;
+            }
+            
+            .modal-content {
+                margin: 20px auto;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-shield-alt"></i> FoxDen - Панель администрирования</h1>
+            <div class="user-info">
+                <span class="user-name">
+                    <i class="fas fa-user"></i> 
+                    Администратор: <strong>{{ username }}</strong>
+                </span>
+                <a href="/dashboard" class="user-link">
+                    <i class="fas fa-tachometer-alt"></i> Панель управления
+                </a>
+                <a href="/" class="user-link">
+                    <i class="fas fa-home"></i> На главную
+                </a>
+                <a href="/logout" class="user-link">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </a>
+            </div>
+        </div>
+
+        <div class="admin-container">
+            <div class="admin-header">
+                <h2 class="admin-title">
+                    <i class="fas fa-users-cog"></i> 
+                    Управление пользователями
+                </h2>
+                <button class="btn-new-user" onclick="openUserModal()">
+                    <i class="fas fa-user-plus"></i> Новый пользователь
+                </button>
+            </div>
+
+            <div class="stats-card">
+                <div class="stats-label">
+                    <i class="fas fa-users"></i> Всего пользователей
+                </div>
+                <div class="stats-number">{{ total_users }}</div>
+            </div>
+
+            {% if users %}
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>Пользователь</th>
+                        <th>Количество устройств</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <strong>{{ user.name }}</strong><br>
+                            <small style="color: #7f8c8d;">
+                                <i class="fas fa-envelope"></i> {{ user.email }}<br>
+                                <i class="fas fa-user"></i> {{ user.surname }}
+                            </small>
+                        </td>
+                        <td>
+                            <span class="device-count">{{ user.device_count }}</span>
+                        </td>
+                        <td>
+                            {% if user.state %}
+                                <span class="status-badge status-active">
+                                    <i class="fas fa-check-circle"></i> Активен
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-inactive">
+                                    <i class="fas fa-times-circle"></i> Удален
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn-edit" onclick="editUser({{ user.id }})">
+                                <i class="fas fa-edit"></i> Редактировать
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="info-message">
+                <i class="fas fa-info-circle"></i>
+                Нет зарегистрированных пользователей
+            </div>
+            {% endif %}
+
+            <a href="/dashboard" class="back-link">
+                <i class="fas fa-arrow-left"></i> Вернуться на панель управления
+            </a>
+        </div>
+    </div>
+
+    <!-- Модальное окно для редактирования пользователя -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle"><i class="fas fa-user-edit"></i> Редактирование пользователя</h2>
+                <button class="close-modal" onclick="closeUserModal()">&times;</button>
+            </div>
+            
+            <form id="userForm">
+                <input type="hidden" id="userId" name="user_id">
+                
+                <div class="form-group">
+                    <label for="username">
+                        <i class="fas fa-user"></i> Имя пользователя:
+                    </label>
+                    <input type="text" id="username" name="username" required 
+                           placeholder="Введите логин">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">
+                        <i class="fas fa-envelope"></i> Email:
+                    </label>
+                    <input type="email" id="email" name="email" required 
+                           placeholder="user@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="fullName">
+                        <i class="fas fa-user-tag"></i> Полное имя:
+                    </label>
+                    <input type="text" id="fullName" name="full_name" required 
+                           placeholder="Иванов Иван Иванович">
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="userState" name="state" checked>
+                        <i class="fas fa-check-circle" style="color: #27ae60;"></i>
+                        Активный пользователь
+                    </label>
+                </div>
+
+                <div class="devices-section">
+                    <h3>
+                        <i class="fas fa-microchip"></i> Устройства пользователя
+                        <button type="button" class="btn-add-device" onclick="addDevice()">
+                            <i class="fas fa-plus"></i> Добавить счетчик
+                        </button>
+                    </h3>
+                    
+                    <table class="devices-table" id="devicesTable">
+                        <thead>
+                            <tr>
+                                <th>Серийный номер</th>
+                                <th>Тип устройства</th>
+                                <th>MAC адрес</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devicesTableBody">
+                            <!-- Устройства будут добавляться сюда динамически -->
+                        </tbody>
+                    </table>
+                    
+                    <div id="noDevicesMessage" style="display: none; text-align: center; padding: 20px; color: #7f8c8d;">
+                        <i class="fas fa-info-circle"></i> У пользователя нет устройств
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-save"></i> Сохранить изменения
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="closeUserModal()">
+                        <i class="fas fa-times"></i> Отменить
+                    </button>
+                    <button type="button" class="btn-change-password" onclick="changePassword()">
+                        <i class="fas fa-key"></i> Изменить пароль
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для редактирования устройства -->
+    <div id="deviceModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 id="deviceModalTitle"><i class="fas fa-microchip"></i> Редактирование счетчика</h2>
+                <button class="close-modal" onclick="closeDeviceModal()">&times;</button>
+            </div>
+            
+            <form id="deviceForm">
+                <input type="hidden" id="deviceId" name="device_id">
+                <input type="hidden" id="deviceUserId" name="user_id">
+                
+                <div class="form-group">
+                    <label for="deviceType">
+                        <i class="fas fa-cog"></i> Тип устройства:
+                    </label>
+                    <select id="deviceType" name="type_id" required>
+                        <option value="">Выберите тип устройства</option>
+                        {% for type in device_types %}
+                        <option value="{{ type.id }}">{{ type.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="serialNumber">
+                        <i class="fas fa-barcode"></i> Серийный номер:
+                    </label>
+                    <input type="text" id="serialNumber" name="serial_number" required 
+                           placeholder="Например: 13-2416653">
+                </div>
+                
+                <div class="form-group">
+                    <label for="macAddress">
+                        <i class="fas fa-network-wired"></i> MAC Адрес устройства:
+                    </label>
+                    <input type="text" id="macAddress" name="mac_address" required 
+                           placeholder="XX:XX:XX:XX:XX:XX">
+                </div>
+                
+                <div class="form-group">
+                    <label for="pin">
+                        <i class="fas fa-key"></i> Пин подключения:
+                    </label>
+                    <input type="text" id="pin" name="pin" required 
+                           placeholder="Введите PIN код">
+                </div>
+                
+                <div class="form-group">
+                    <label for="scaleUnit">
+                        <i class="fas fa-weight"></i> Единица измерения:
+                    </label>
+                    <select id="scaleUnit" name="scale_unit_id" required>
+                        <option value="">Выберите единицу измерения</option>
+                        {% for unit in units %}
+                        <option value="{{ unit.id }}">{{ unit.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="stepIncrement">
+                        <i class="fas fa-ruler"></i> Шаг шкалы:
+                    </label>
+                    <input type="number" id="stepIncrement" name="step_increment" 
+                           step="0.001" required placeholder="0.001">
+                </div>
+                
+                <div class="form-group">
+                    <label for="indicator">
+                        <i class="fas fa-tachometer-alt"></i> Текущее значение счетчика:
+                    </label>
+                    <input type="number" id="indicator" name="indicator" 
+                           step="0.001" required placeholder="0.000">
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="deviceState" name="state" checked>
+                        <i class="fas fa-check-circle" style="color: #27ae60;"></i>
+                        Активное устройство
+                    </label>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-save"></i> Сохранить изменения
+                    </button>
+                    <button type="button" class="btn-cancel" onclick="closeDeviceModal()">
+                        <i class="fas fa-times"></i> Отменить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let currentEditingUserId = null;
+        let currentEditingDeviceId = null;
+        let userDevices = [];
+
+        // ==================== Функции для работы с пользователями ====================
+
+        function openUserModal(userId = null) {
+            currentEditingUserId = userId;
+            
+            if (userId) {
+                document.getElementById('modalTitle').innerHTML = '<i class="fas fa-user-edit"></i> Редактирование пользователя';
+                loadUserData(userId);
+            } else {
+                document.getElementById('modalTitle').innerHTML = '<i class="fas fa-user-plus"></i> Новый пользователь';
+                // Очищаем форму
+                document.getElementById('userId').value = '';
+                document.getElementById('username').value = '';
+                document.getElementById('email').value = '';
+                document.getElementById('fullName').value = '';
+                document.getElementById('userState').checked = true;
+                userDevices = [];
+                renderDevicesTable();
+            }
+            
+            document.getElementById('userModal').style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Запрещаем прокрутку фона
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').style.display = 'none';
+            document.body.style.overflow = 'auto'; // Разрешаем прокрутку фона
+        }
+
+        function loadUserData(userId) {
+            // Показываем индикатор загрузки
+            const tbody = document.getElementById('devicesTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>';
+            
+            fetch(`/api/user/${userId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка загрузки данных');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('userId').value = data.id;
+                    document.getElementById('username').value = data.name;
+                    document.getElementById('email').value = data.email;
+                    document.getElementById('fullName').value = data.surname;
+                    document.getElementById('userState').checked = data.state;
+                    
+                    userDevices = data.devices || [];
+                    renderDevicesTable();
+                })
+                .catch(error => {
+                    alert('Ошибка загрузки данных пользователя: ' + error.message);
+                    closeUserModal();
+                });
+        }
+
+        // ==================== Функции для работы с устройствами ====================
+
+        function openDeviceModal(deviceId = null, userId = null) {
+            currentEditingDeviceId = deviceId;
+            
+            if (deviceId) {
+                document.getElementById('deviceModalTitle').innerHTML = '<i class="fas fa-microchip"></i> Редактирование счетчика';
+                loadDeviceData(deviceId);
+            } else {
+                document.getElementById('deviceModalTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Новый счетчик';
+                // Очищаем форму
+                document.getElementById('deviceId').value = '';
+                document.getElementById('deviceUserId').value = userId || currentEditingUserId;
+                document.getElementById('deviceType').value = '';
+                document.getElementById('serialNumber').value = '';
+                document.getElementById('macAddress').value = '';
+                document.getElementById('pin').value = '';
+                document.getElementById('scaleUnit').value = '';
+                document.getElementById('stepIncrement').value = '';
+                document.getElementById('indicator').value = '';
+                document.getElementById('deviceState').checked = true;
+            }
+            
+            document.getElementById('deviceModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDeviceModal() {
+            document.getElementById('deviceModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function loadDeviceData(deviceId) {
+            fetch(`/api/device/${deviceId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка загрузки данных');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('deviceId').value = data.id;
+                    document.getElementById('deviceUserId').value = data.user_id;
+                    document.getElementById('deviceType').value = data.type_id;
+                    document.getElementById('serialNumber').value = data.serial_number;
+                    document.getElementById('macAddress').value = data.mac_address;
+                    document.getElementById('pin').value = data.pin;
+                    document.getElementById('scaleUnit').value = data.scale_unit_id;
+                    document.getElementById('stepIncrement').value = data.step_increment;
+                    document.getElementById('indicator').value = data.indicator;
+                    document.getElementById('deviceState').checked = data.state;
+                })
+                .catch(error => {
+                    alert('Ошибка загрузки данных устройства: ' + error.message);
+                    closeDeviceModal();
+                });
+        }
+
+        function renderDevicesTable() {
+            const tbody = document.getElementById('devicesTableBody');
+            const noDevicesMsg = document.getElementById('noDevicesMessage');
+            
+            tbody.innerHTML = '';
+            
+            if (userDevices.length === 0) {
+                noDevicesMsg.style.display = 'block';
+                return;
+            }
+            
+            noDevicesMsg.style.display = 'none';
+            
+            userDevices.forEach(device => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><strong>${device.serial_number || 'Н/Д'}</strong></td>
+                    <td>${device.type_name || 'Н/Д'}</td>
+                    <td><small>${device.mac_address || 'Н/Д'}</small></td>
+                    <td>
+                        <span class="status-badge ${device.state ? 'status-active' : 'status-inactive'}">
+                            ${device.state ? 'Активен' : 'Удален'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn-edit" onclick="editDevice(${device.id})">
+                            <i class="fas fa-edit"></i> Редактировать
+                        </button>
+                    </td>
+                `;
+            });
+        }
+
+        // ==================== Обработчики событий ====================
+
+        function editUser(userId) {
+            openUserModal(userId);
+        }
+
+        function editDevice(deviceId) {
+            openDeviceModal(deviceId);
+        }
+
+        function addDevice() {
+            if (!currentEditingUserId) {
+                alert('Сначала сохраните пользователя');
+                return;
+            }
+            openDeviceModal(null, currentEditingUserId);
+        }
+
+        function changePassword() {
+            if (!currentEditingUserId) {
+                alert('Выберите пользователя');
+                return;
+            }
+            
+            const newPassword = prompt('Введите новый пароль для пользователя:');
+            if (newPassword && newPassword.trim() !== '') {
+                if (newPassword.length < 4) {
+                    alert('Пароль должен быть не менее 4 символов');
+                    return;
+                }
+                
+                fetch('/api/change_password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: currentEditingUserId,
+                        password: newPassword
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('✅ Пароль успешно изменен');
+                    } else {
+                        alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                    }
+                })
+                .catch(error => {
+                    alert('❌ Ошибка при изменении пароля: ' + error.message);
+                });
+            }
+        }
+
+        // Сохранение пользователя
+        document.getElementById('userForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Валидация
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const fullName = document.getElementById('fullName').value.trim();
+            
+            if (!username || !email || !fullName) {
+                alert('Пожалуйста, заполните все обязательные поля');
+                return;
+            }
+            
+            if (!email.includes('@') || !email.includes('.')) {
+                alert('Пожалуйста, введите корректный email адрес');
+                return;
+            }
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Преобразуем значения
+            data.state = document.getElementById('userState').checked;
+            
+            fetch('/api/save_user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Пользователь успешно сохранен');
+                    location.reload();
+                } else {
+                    alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(error => {
+                alert('❌ Ошибка при сохранении: ' + error.message);
+            });
+        });
+
+        // Сохранение устройства
+        document.getElementById('deviceForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Валидация
+            const serialNumber = document.getElementById('serialNumber').value.trim();
+            const macAddress = document.getElementById('macAddress').value.trim();
+            const pin = document.getElementById('pin').value.trim();
+            
+            if (!serialNumber || !macAddress || !pin) {
+                alert('Пожалуйста, заполните все обязательные поля');
+                return;
+            }
+            
+            // Простая проверка MAC-адреса
+            const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
+            if (!macRegex.test(macAddress)) {
+                if (!confirm('MAC-адрес имеет нестандартный формат. Продолжить?')) {
+                    return;
+                }
+            }
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Преобразуем значения
+            data.state = document.getElementById('deviceState').checked;
+            data.step_increment = parseFloat(data.step_increment);
+            data.indicator = parseFloat(data.indicator);
+            
+            fetch('/api/save_device', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Устройство успешно сохранено');
+                    closeDeviceModal();
+                    if (currentEditingUserId) {
+                        loadUserData(currentEditingUserId);
+                    }
+                } else {
+                    alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(error => {
+                alert('❌ Ошибка при сохранении: ' + error.message);
+            });
+        });
+
+        // Закрытие модальных окон при клике вне их
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('userModal')) {
+                closeUserModal();
+            }
+            if (event.target == document.getElementById('deviceModal')) {
+                closeDeviceModal();
+            }
+        }
+
+        // Закрытие по клавише Escape
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeUserModal();
+                closeDeviceModal();
+            }
+        });
+    </script>
+</body>
+</html>
