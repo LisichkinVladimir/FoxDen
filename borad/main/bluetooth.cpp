@@ -93,7 +93,7 @@ class CharacteristicCallbacks : public NimBLECharacteristicCallbacks {
     DebugOutputf("%s : onWrite(), value: %s\n", uuid.c_str(), value.c_str());
     #endif  
     FBLECharacteristics::setValue(uuid.c_str(), value);
-    setPreference(FBLECharacteristics::getName(uuid.c_str()), value);
+    setPreference(FBLECharacteristics::getPreferenceName(uuid.c_str()), value);
   }
 
   /**

@@ -23,14 +23,15 @@
 struct FBLECharacteristic {
   const char* uuid;
   const char* description;
+  const char* preference_name;
 };
 
 static FBLECharacteristic BLECharacteristics[] = {
-  { WIFI_SSID_CHARACTERISTIC_UUID, "WIFI SSID" },
-  { WIFI_PASSWORD_CHARACTERISTIC_UUID, "WIFI Password"},
-  { SERVER_NAME_UUID, "Web server name"},
-  { ESP_MAC_ADDRESS, "ESP32 MAC address"},
-  { LAST_LOG, "Last log message"}
+  { WIFI_SSID_CHARACTERISTIC_UUID, "WIFI SSID", "WIFI_SSID"},
+  { WIFI_PASSWORD_CHARACTERISTIC_UUID, "WIFI Password", "WIFI_PASSWORD"},
+  { SERVER_NAME_UUID, "Web server name", "SERVER_NAME"},
+  { ESP_MAC_ADDRESS, "ESP32 MAC address", NULL},
+  { LAST_LOG, "Last log message", NULL}
 };
 
 class FBLECharacteristics {
@@ -67,10 +68,10 @@ public:
     }
   }
 
-  static const char* getName(const char* uuid) {
+  static const char* getPreferenceName(const char* uuid) {
     for(int i = 0; i < sizeof(BLECharacteristics)/sizeof(FBLECharacteristic); i++)
       if (strcmp(BLECharacteristics[i].uuid, uuid) == 0)
-        return BLECharacteristics[i].description;
+        return BLECharacteristics[i].preference_name;
     Serial.printf("Invalid Characteristic getName\n");
     outOfRange();
   }
