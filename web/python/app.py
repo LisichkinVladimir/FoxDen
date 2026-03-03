@@ -1465,7 +1465,7 @@ def save_user_api():
     except Exception as e:
         connect.rollback()
         logging.error(f"Ошибка в save_user_api: {e}")
-        return jsonify({"error": "Ошибка сохранения данных"), 500
+        return jsonify({"error": "Ошибка сохранения данных"}), 500
     finally:
         close_connection(connect)
 
