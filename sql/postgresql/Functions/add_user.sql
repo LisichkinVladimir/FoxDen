@@ -1,12 +1,11 @@
--- Добавление нового пользователя
-create or replace procedure add_user(
+create or replace function add_user(
     p_name      varchar,
     p_email     varchar,
     p_surname   varchar,
 	p_psw       varchar,
-	p_roles     integer[]
-)
-language plpgsql
+	p_state		boolean,
+	p_roles     integer[] DEFAULT ARRAY[]::integer[]
+) returns integer 
 as $$
 declare
 	v_user_id   integer;
@@ -20,5 +19,6 @@ begin
 		insert into public.user_roles (user_id, role_id)
 		values (v_user_id, v_role_id);
 	end loop;
+	return v_user_id;
 end;
-$$;
+$$ language plpgsql SECURITY DEFINER;

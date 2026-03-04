@@ -39,17 +39,11 @@ def is_admin(user_id: int) -> bool:
 
     try:
         # Проверяем наличие роли администратора
-        query = text("""
-            SELECT COUNT(*) 
-            FROM user_roles ur
-            JOIN roles r ON ur.role_id = r.id
-            WHERE ur.user_id = :user_id 
-              AND r.code = 'administrator'
-              AND r.state = true
-        """)
+        query = text("""select public.is_admin(:user_id) as is_admin""")
+        
         logging.info(f"Выполняем запрос: {query}")
         result = connect.execute(query, {"user_id": user_id})
-        count = result.scalar()
+        count = result.fetchone().row[0]
         logging.info(f"Результат запроса: count={count}")
         
         is_admin_result = count > 0
@@ -1429,11 +1423,7 @@ def save_user_api():
 
         if user_id:
             # Обновляем существующего пользователя
-            query = text("""
-                UPDATE users 
-                SET name = :name, email = :email, surname = :surname, state = :state
-                WHERE id = :user_id
-            """)
+            query = text("""call public.update_user(:user_id, :name, :email, :surname, :state)""")
             connect.execute(query, {
                 "user_id": user_id,
                 "name": name,
@@ -1445,11 +1435,7 @@ def save_user_api():
         else:
             # Создаем нового пользователя с временным паролем
             temp_password = "changeme"
-            query = text("""
-                INSERT INTO users (name, email, surname, psw, state)
-                VALUES (:name, :email, :surname, md5(:password), :state)
-                RETURNING id
-            """)
+            query = text("""select public.add_user(:name, :email, :surname, :password, :state) as id""")
             result = connect.execute(query, {
                 "name": name,
                 "email": email,
