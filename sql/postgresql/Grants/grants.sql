@@ -8,3 +8,5 @@ GRANT EXECUTE ON PROCEDURE public.update_user(integer, character varying, charac
 GRANT SELECT ON TABLE public.users TO foxden_user;
 GRANT SELECT ON TABLE public.roles TO foxden_user;
 GRANT SELECT ON TABLE public.user_roles TO foxden_user;
+GRANT SELECT ON TABLE public.device_types TO foxden_user;
+GRANT SELECT ON TABLE public.units TO foxden_user;
