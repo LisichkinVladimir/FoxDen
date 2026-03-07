@@ -1480,8 +1480,8 @@ def save_device_api():
 
         if device_id:
             # Обновляем существующее устройство
-            query = text("""public.update_devic(:device_id, :type_id, :mac_address, :pin, 
-                         :serial_number, :scale_unit_id, :step_increment, :indicator, :state
+            query = text("""call public.update_device(:device_id, :type_id, :mac_address, :pin,
+                         :serial_number, :scale_unit_id, :step_increment, :indicator, :state)
             """)
             connect.execute(query, {
                 "device_id": device_id,
