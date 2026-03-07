@@ -1480,13 +1480,8 @@ def save_device_api():
 
         if device_id:
             # Обновляем существующее устройство
-            query = text("""
-                UPDATE devices 
-                SET type_id = :type_id, mac_address = :mac_address, pin = :pin,
-                    serial_number = :serial_number, scale_unit_id = :scale_unit_id,
-                    step_increment = :step_increment, indicator = :indicator,
-                    state = :state
-                WHERE id = :device_id
+            query = text("""public.update_devic(:device_id, :type_id, :mac_address, :pin, 
+                         :serial_number, :scale_unit_id, :step_increment, :indicator, :state
             """)
             connect.execute(query, {
                 "device_id": device_id,
@@ -1501,10 +1496,7 @@ def save_device_api():
             })
         else:
             # Создаем новое устройство
-            query = text("""
-                INSERT INTO devices (type_id, mac_address, pin, serial_number,
-                                   scale_unit_id, step_increment, indicator, user_id, state)
-                VALUES (:type_id, :mac_address, :pin, :serial_number,
+            query = text("""select public.add_device(:type_id, :mac_address, :pin, :serial_number,
                        :scale_unit_id, :step_increment, :indicator, :user_id, :state)
             """)
             connect.execute(query, {
@@ -1524,8 +1516,8 @@ def save_device_api():
 
     except Exception as e:
         connect.rollback()
-        logging.error(f"Ошибка в save_device_api: {e}")
-        return jsonify({"error": str(e)}), 500
+        logging.error(f"Ошибка в изменения данных об устройстве: {e}")
+        return jsonify({"error": "Ошибка в изменения данных об устройстве"}), 500
     finally:
         close_connection(connect)
 
