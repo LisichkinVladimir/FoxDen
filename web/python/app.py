@@ -31,7 +31,7 @@ def json_error(error_code: int, error_message: str) -> wrappers.Response:
 def is_admin(user_id: int) -> bool:
     """Проверяет, является ли пользователь администратором"""
     logging.info(f"=== Проверка прав администратора для user_id={user_id} ===")
-    
+
     connect = connect_database()
     if connect is None:
         logging.error("Не удалось подключиться к БД")
@@ -40,15 +40,15 @@ def is_admin(user_id: int) -> bool:
     try:
         # Проверяем наличие роли администратора
         query = text("""select public.is_admin(:user_id) as is_admin""")
-        
+
         logging.info(f"Выполняем запрос: {query}")
         result = connect.execute(query, {"user_id": user_id})
-        count = result.fetchone().row[0]
+        count = result.fetchone()[0]
         logging.info(f"Результат запроса: count={count}")
-        
+
         is_admin_result = count > 0
         logging.info(f"Пользователь {user_id} является администратором: {is_admin_result}")
-        
+
         return is_admin_result
     except Exception as e:
         logging.error(f"Ошибка проверки прав администратора: {e}")
@@ -849,27 +849,27 @@ def connect_device():
 def debug_admin():
     """Диагностика прав администратора"""
     result = "<h1>Диагностика администратора</h1>"
-    
+
     # Проверяем сессию
     result += "<h2>Данные сессии:</h2>"
     result += f"<p>session.get('username'): {session.get('username')}</p>"
     result += f"<p>session.get('userid'): {session.get('userid')}</p>"
     result += f"<p>Все ключи в session: {list(session.keys())}</p>"
-    
+
     if 'username' not in session:
         result += "<p style='color:red'>❌ Пользователь не авторизован!</p>"
         return result
-    
+
     # Проверяем функцию is_admin
     user_id = session.get('userid')
     result += f"<h2>Проверка is_admin для user_id={user_id}:</h2>"
-    
+
     try:
         is_admin_result = is_admin(user_id)
         result += f"<p>is_admin вернул: <strong>{is_admin_result}</strong></p>"
     except Exception as e:
         result += f"<p style='color:red'>Ошибка в is_admin: {e}</p>"
-    
+
     # Прямой SQL запрос для проверки
     result += "<h2>Прямой SQL запрос:</h2>"
     connect = connect_database()
@@ -888,7 +888,7 @@ def debug_admin():
             """)
             result_rows = connect.execute(query, {"user_id": user_id})
             rows = result_rows.fetchall()
-            
+
             if rows:
                 result += "<table border='1' cellpadding='5'>"
                 result += "<tr><th>ID</th><th>Имя</th><th>Код роли</th><th>Название роли</th></tr>"
@@ -902,14 +902,14 @@ def debug_admin():
                 result += "</table>"
             else:
                 result += "<p>Пользователь не найден</p>"
-                
+
         except Exception as e:
             result += f"<p style='color:red'>Ошибка SQL: {e}</p>"
         finally:
             close_connection(connect)
     else:
         result += "<p style='color:red'>❌ Не удалось подключиться к БД</p>"
-    
+
     # Проверяем, что рендерится в шаблоне
     result += "<h2>Проверка шаблона:</h2>"
     result += "<p>Перейдите на <a href='/'>главную страницу</a> и проверьте:</p>"
@@ -917,7 +917,7 @@ def debug_admin():
     result += "<li>Есть ли кнопка 'Администрирование'?</li>"
     result += "<li>Посмотрите исходный код страницы (Ctrl+U) и найдите 'btn-admin'</li>"
     result += "</ul>"
-    
+
     return result
 
 @app.route('/add_device_changes', methods=['POST'])
@@ -1220,7 +1220,7 @@ def test_all_leaks():
         return f"Ошибка: {e}"
 
 # ============================================================================
-# АДМИНИСТРАТИВНЫЕ МАРШРУТЫ 
+# АДМИНИСТРАТИВНЫЕ МАРШРУТЫ
 # ============================================================================
 
 @app.route('/admin')
@@ -1232,9 +1232,9 @@ def admin_panel():
 
     user_id = session.get('userid')
     username = session.get('username')
-    
+
     logging.info(f"Проверка прав администратора для пользователя {username} (ID: {user_id})")
-    
+
     # Проверяем права администратора
     if not is_admin(user_id):
         logging.warning(f"Пользователь {username} (ID: {user_id}) не имеет прав администратора")
