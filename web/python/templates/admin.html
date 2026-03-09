@@ -601,7 +601,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            <button class="btn-edit" onclick="editDevice({{ user.id }})">
+                            <button class="btn-edit" onclick="editUser({{ user.id }})">
                                 <i class="fas fa-edit"></i> Редактировать
                             </button>
                         </td>
@@ -950,9 +950,9 @@
                         </span>
                     </td>
                     <td>
-                        <button class="btn-edit" onclick="editDevice(${device.id})">
-                            <i class="fas fa-edit"></i> Редактировать
-                        </button>
+                        <button type="button" class="btn-add-device" onclick="editDevice(${device.id})">
+                            <i class="fas fa-plus"></i> Редактировать
+                        </button>                        
                     </td>
                 `;
             });
