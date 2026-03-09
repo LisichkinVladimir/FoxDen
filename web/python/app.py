@@ -1539,11 +1539,7 @@ def change_password_api():
         return jsonify({"error": "Ошибка подключения к БД"}), 500
 
     try:
-        query = text("""
-            UPDATE users 
-            SET psw = md5(:password)
-            WHERE id = :user_id
-        """)
+        query = text("""call public.change_password(:user_id, :password)""")
         connect.execute(query, {
             "user_id": user_id,
             "password": password

@@ -7,6 +7,7 @@ GRANT EXECUTE ON FUNCTION public.add_device(integer, character varying, integer,
 GRANT EXECUTE ON PROCEDURE public.add_device_changes(character varying, integer, timestamp with time zone) TO foxden_user;
 GRANT EXECUTE ON PROCEDURE public.update_user(integer, character varying, character varying, character varying, boolean) TO foxden_user;
 GRANT EXECUTE ON PROCEDURE public.update_device(integer, integer, character varying, integer, character varying, integer, numeric, numeric, boolean) TO foxden_user;
+GRANT EXECUTE ON PROCEDURE public.change_password(integer, character varying) TO foxden_user;
 GRANT SELECT ON TABLE public.users TO foxden_user;
 GRANT SELECT ON TABLE public.roles TO foxden_user;
 GRANT SELECT ON TABLE public.user_roles TO foxden_user;
