@@ -429,6 +429,7 @@
             align-items: center;
             gap: 10px;
             font-size: 1.4em;
+            flex-wrap: wrap;
         }
 
         .btn-add-device {
@@ -453,14 +454,20 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
+        /* Улучшенные стили для таблицы устройств */
+        .devices-table-wrapper {
+            overflow-x: auto;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid #e1e8ed;
+        }
+
         .devices-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
             background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            min-width: 800px;
+            table-layout: fixed;
         }
 
         .devices-table th {
@@ -469,15 +476,36 @@
             padding: 12px;
             text-align: left;
             font-size: 14px;
+            white-space: nowrap;
         }
+
+        .devices-table th:first-child { width: 20%; }
+        .devices-table th:nth-child(2) { width: 20%; }
+        .devices-table th:nth-child(3) { width: 25%; }
+        .devices-table th:nth-child(4) { width: 15%; }
+        .devices-table th:nth-child(5) { width: 20%; }
 
         .devices-table td {
             padding: 12px;
             border-bottom: 1px solid #ecf0f1;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
 
         .devices-table tr:hover {
             background: #f8f9fa;
+        }
+
+        .devices-table td:first-child {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .devices-table td:nth-child(3) {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #2980b9;
         }
 
         .info-message {
@@ -494,6 +522,66 @@
 
         .info-message i {
             font-size: 1.2em;
+        }
+
+        /* Стили для модального окна смены пароля */
+        .password-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1001;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .password-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        .password-field {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 20px;
+            background: transparent;
+            border: none;
+            padding: 5px;
+            transition: transform 0.2s;
+        }
+
+        .password-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .password-input {
+            width: 100%;
+            padding: 12px;
+            padding-right: 40px;
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .password-input:focus {
+            outline: none;
+            border-color: #3498db;
         }
 
         @media (max-width: 768px) {
@@ -523,6 +611,12 @@
             .modal-content {
                 margin: 20px auto;
                 padding: 20px;
+            }
+            
+            .devices-table th,
+            .devices-table td {
+                padding: 8px;
+                font-size: 12px;
             }
         }
     </style>
@@ -673,20 +767,22 @@
                         </button>
                     </h3>
                     
-                    <table class="devices-table" id="devicesTable">
-                        <thead>
-                            <tr>
-                                <th>Серийный номер</th>
-                                <th>Тип устройства</th>
-                                <th>MAC адрес</th>
-                                <th>Статус</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody id="devicesTableBody">
-                            <!-- Устройства будут добавляться сюда динамически -->
-                        </tbody>
-                    </table>
+                    <div class="devices-table-wrapper">
+                        <table class="devices-table" id="devicesTable">
+                            <thead>
+                                <tr>
+                                    <th>Серийный номер</th>
+                                    <th>Тип устройства</th>
+                                    <th>MAC адрес</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devicesTableBody">
+                                <!-- Устройства будут добавляться сюда динамически -->
+                            </tbody>
+                        </table>
+                    </div>
                     
                     <div id="noDevicesMessage" style="display: none; text-align: center; padding: 20px; color: #7f8c8d;">
                         <i class="fas fa-info-circle"></i> У пользователя нет устройств
@@ -810,8 +906,113 @@
         let currentEditingDeviceId = null;
         let userDevices = [];
 
-        // ==================== Функции для работы с пользователями ====================
+        // ==================== ФУНКЦИИ ДЛЯ ГЛАЗИКА ====================
+        function togglePasswordVisibility(inputId, eyeElement) {
+            const input = document.getElementById(inputId);
+            if (input.type === "password") {
+                input.type = "text";
+                eyeElement.textContent = "🔒";
+                eyeElement.title = "Скрыть пароль";
+            } else {
+                input.type = "password";
+                eyeElement.textContent = "👁️";
+                eyeElement.title = "Показать пароль";
+            }
+        }
 
+        // ==================== ФУНКЦИИ ДЛЯ СМЕНЫ ПАРОЛЯ ====================
+        function changePassword() {
+            if (!currentEditingUserId) {
+                alert('Выберите пользователя');
+                return;
+            }
+            
+            // Создаем модальное окно для ввода пароля
+            const modalHtml = `
+                <div class="password-modal" id="passwordModal">
+                    <div class="password-modal-content">
+                        <h3 style="margin-bottom: 20px; color: #2c3e50;">
+                            <i class="fas fa-key"></i> Изменение пароля
+                        </h3>
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                                Новый пароль:
+                            </label>
+                            <div class="password-field">
+                                <input type="password" id="newPasswordInput" class="password-input" 
+                                       placeholder="Введите новый пароль">
+                                <span class="password-toggle" onclick="togglePasswordVisibility('newPasswordInput', this)" 
+                                      title="Показать пароль">
+                                    👁️
+                                </span>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button onclick="confirmPasswordChange()" class="btn-save" style="padding: 10px 20px;">
+                                <i class="fas fa-check"></i> Сохранить
+                            </button>
+                            <button onclick="closePasswordModal()" class="btn-cancel" style="padding: 10px 20px;">
+                                <i class="fas fa-times"></i> Отмена
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Добавляем модальное окно на страницу
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHtml;
+            document.body.appendChild(modalContainer);
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePasswordModal() {
+            const modal = document.getElementById('passwordModal');
+            if (modal && modal.parentNode) {
+                modal.parentNode.remove();
+            }
+            document.body.style.overflow = 'auto';
+        }
+
+        function confirmPasswordChange() {
+            const passwordInput = document.getElementById('newPasswordInput');
+            const newPassword = passwordInput ? passwordInput.value.trim() : '';
+            
+            if (!newPassword) {
+                alert('Введите новый пароль');
+                return;
+            }
+            
+            if (newPassword.length < 4) {
+                alert('Пароль должен быть не менее 4 символов');
+                return;
+            }
+            
+            fetch('/api/change_password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: currentEditingUserId,
+                    password: newPassword
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Пароль успешно изменен');
+                    closePasswordModal();
+                } else {
+                    alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(error => {
+                alert('❌ Ошибка при изменении пароля: ' + error.message);
+            });
+        }
+
+        // ==================== Функции для работы с пользователями ====================
         function openUserModal(userId = null) {
             currentEditingUserId = userId;
             
@@ -831,12 +1032,12 @@
             }
             
             document.getElementById('userModal').style.display = 'block';
-            document.body.style.overflow = 'hidden'; // Запрещаем прокрутку фона
+            document.body.style.overflow = 'hidden';
         }
 
         function closeUserModal() {
             document.getElementById('userModal').style.display = 'none';
-            document.body.style.overflow = 'auto'; // Разрешаем прокрутку фона
+            document.body.style.overflow = 'auto';
         }
 
         function loadUserData(userId) {
@@ -868,7 +1069,6 @@
         }
 
         // ==================== Функции для работы с устройствами ====================
-
         function openDeviceModal(deviceId = null, userId = null) {
             currentEditingDeviceId = deviceId;
             
@@ -925,6 +1125,7 @@
                 });
         }
 
+        // Обновленная функция renderDevicesTable
         function renderDevicesTable() {
             const tbody = document.getElementById('devicesTableBody');
             const noDevicesMsg = document.getElementById('noDevicesMessage');
@@ -940,18 +1141,26 @@
             
             userDevices.forEach(device => {
                 const row = tbody.insertRow();
+                
+                // Форматируем MAC адрес для лучшей читаемости
+                let macAddress = device.mac_address || 'Н/Д';
+                if (macAddress.length > 17) {
+                    macAddress = macAddress.substring(0, 17) + '…';
+                }
+                
                 row.innerHTML = `
-                    <td><strong>${device.serial_number || 'Н/Д'}</strong></td>
-                    <td>${device.type_name || 'Н/Д'}</td>
-                    <td><small>${device.mac_address || 'Н/Д'}</small></td>
+                    <td><strong title="${device.serial_number || ''}">${device.serial_number || 'Н/Д'}</strong></td>
+                    <td title="${device.type_name || ''}">${device.type_name || 'Н/Д'}</td>
+                    <td title="${device.mac_address || ''}"><small style="font-family: monospace;">${macAddress}</small></td>
                     <td>
                         <span class="status-badge ${device.state ? 'status-active' : 'status-inactive'}">
                             ${device.state ? 'Активен' : 'Удален'}
                         </span>
                     </td>
                     <td>
-                        <button type="button" class="btn-add-device" onclick="editDevice(${device.id})">
-                            <i class="fas fa-plus"></i> Редактировать
+                        <button type="button" class="btn-add-device" onclick="editDevice(${device.id})" 
+                                style="padding: 6px 12px; font-size: 13px;">
+                            <i class="fas fa-edit"></i> Редактировать
                         </button>                        
                     </td>
                 `;
@@ -959,7 +1168,6 @@
         }
 
         // ==================== Обработчики событий ====================
-
         function editUser(userId) {
             openUserModal(userId);
         }
@@ -974,43 +1182,6 @@
                 return;
             }
             openDeviceModal(null, currentEditingUserId);
-        }
-
-        function changePassword() {
-            if (!currentEditingUserId) {
-                alert('Выберите пользователя');
-                return;
-            }
-            
-            const newPassword = prompt('Введите новый пароль для пользователя:');
-            if (newPassword && newPassword.trim() !== '') {
-                if (newPassword.length < 4) {
-                    alert('Пароль должен быть не менее 4 символов');
-                    return;
-                }
-                
-                fetch('/api/change_password', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        user_id: currentEditingUserId,
-                        password: newPassword
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('✅ Пароль успешно изменен');
-                    } else {
-                        alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
-                    }
-                })
-                .catch(error => {
-                    alert('❌ Ошибка при изменении пароля: ' + error.message);
-                });
-            }
         }
 
         // Сохранение пользователя
@@ -1121,6 +1292,9 @@
             if (event.target == document.getElementById('deviceModal')) {
                 closeDeviceModal();
             }
+            if (event.target && event.target.className === 'password-modal') {
+                closePasswordModal();
+            }
         }
 
         // Закрытие по клавише Escape
@@ -1128,6 +1302,7 @@
             if (event.key === 'Escape') {
                 closeUserModal();
                 closeDeviceModal();
+                closePasswordModal();
             }
         });
     </script>

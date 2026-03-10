@@ -25,7 +25,6 @@
         .header-titles {
             text-align: center;
         }
-        /* Стили для подвала */
         .footer {
             margin-top: 40px;
             padding: 30px 20px;
@@ -78,7 +77,6 @@
             padding-top: 20px;
             border-top: 1px solid #7f8c8d;
         }
-        /* Стили для кнопки администрирования */
         .admin-button {
             margin-top: 15px;
         }
@@ -88,6 +86,28 @@
         }
         .btn-admin:hover {
             background: linear-gradient(135deg, #d35400, #b64900);
+        }
+        .password-field {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 20px;
+            background: transparent;
+            border: none;
+            padding: 5px;
+            transition: transform 0.2s;
+        }
+        .password-toggle:hover {
+            transform: scale(1.1);
+        }
+        .form-input {
+            padding-right: 40px !important;
         }
     </style>
 </head>
@@ -142,7 +162,13 @@
                     
                     <div class="form-group">
                         <label for="password">Пароль:</label>
-                        <input type="password" id="password" name="password" required class="form-input" placeholder="Введите ваш пароль">
+                        <div class="password-field">
+                            <input type="password" id="password" name="password" required class="form-input" 
+                                   placeholder="Введите ваш пароль">
+                            <span class="password-toggle" onclick="togglePasswordVisibility('password', this)" title="Показать/скрыть пароль">
+                                👁️
+                            </span>
+                        </div>
                     </div>
                     
                     <button type="submit" class="btn btn-primary btn-block">Войти в систему</button>
@@ -173,5 +199,20 @@
             <p class="quote">«Экономьте ресурсы и будьте уверены в безопасности вашего дома с FoxDen»</p>
         </div>
     </div>
+
+    <script>
+        function togglePasswordVisibility(inputId, eyeElement) {
+            const input = document.getElementById(inputId);
+            if (input.type === "password") {
+                input.type = "text";
+                eyeElement.textContent = "🔒";
+                eyeElement.title = "Скрыть пароль";
+            } else {
+                input.type = "password";
+                eyeElement.textContent = "👁️";
+                eyeElement.title = "Показать пароль";
+            }
+        }
+    </script>
 </body>
 </html>

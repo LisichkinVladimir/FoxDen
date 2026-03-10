@@ -16,6 +16,13 @@ from simple_email_sender import email_sender
 # ============================================================================
 # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 # ============================================================================
+def make_timezone_naive(dt):
+    """Преобразует datetime с часовым поясом в naive (без часового пояса)"""
+    if dt is None:
+        return datetime.now()
+    if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
 
 def json_error(error_code: int, error_message: str) -> wrappers.Response:
     """ Возвращает ошибку в JSON формате """
@@ -599,6 +606,7 @@ def logout():
     return redirect(url_for('hello_world'))
 
 @app.route('/dashboard')
+@app.route('/dashboard')
 def dashboard():
     """ Панель управления счетчиками """
     if 'username' not in session:
@@ -621,8 +629,9 @@ def dashboard():
             device_id = device[0] if len(device) > 0 else None
             step_increment = float(device[6]) if len(device) > 6 and device[6] is not None else 10.0
             current_value = float(device[7]) if len(device) > 7 and device[7] is not None else 0.0
+            serial_number = device[4] if len(device) > 4 else f'Устройство {device_id}'
 
-            # Получаем изменения для графиков
+            # Получаем ВСЕ изменения для устройства
             cumulative_labels = []
             cumulative_values = []
             daily_labels = []
@@ -633,109 +642,98 @@ def dashboard():
             leak_alerts = []
 
             try:
-                query_changes = text("select moment from public.get_device_changes(:device_id)")
+                query_changes = text("SELECT moment FROM public.get_device_changes(:device_id) ORDER BY moment")
                 changes_result = connect.execute(query_changes, {"device_id": device_id})
                 changes_rows = changes_result.fetchall()
+                
                 changes = []
                 for row in changes_rows:
                     if hasattr(row, 'moment') and row.moment:
+                        # Преобразуем время в naive для корректной работы
+                        naive_moment = make_timezone_naive(row.moment)
                         changes.append({
-                            'moment': row.moment
+                            'moment': naive_moment
                         })
 
                 total_changes = len(changes)
+                
+                # Анализируем утечки если есть изменения
                 if changes:
                     leak_alerts = leak_detector.analyze_device(
                         device_changes=changes,
                         step_increment=step_increment,
                         current_value=current_value,
-                        serial_number=device[4] if len(device) > 4 else 'Без номера'
+                        serial_number=serial_number
                     )
 
-                    # 1. НАКОПИТЕЛЬНЫЙ ГРАФИК - ИСПРАВЛЕННАЯ ВЕРСИЯ
-                    if total_changes > 0:
-                        # Создаем равномерные точки
-                        cumulative_labels = []
-                        cumulative_values = []
+                # 1. НАКОПИТЕЛЬНЫЙ ГРАФИК - все изменения
+                if total_changes > 0:
+                    # Сортируем изменения по времени
+                    sorted_changes = sorted(changes, key=lambda x: x['moment'])
+                    
+                    # Начальное значение (текущее минус все приращения)
+                    initial_value = current_value - (total_changes * step_increment)
+                    
+                    # Создаем метки и значения
+                    for i, change in enumerate(sorted_changes):
+                        # Метка - дата и время
+                        cumulative_labels.append(change['moment'].strftime('%d.%m %H:%M'))
+                        # Значение - начальное + количество шагов * шаг
+                        cumulative_values.append(initial_value + ((i + 1) * step_increment))
+                    
+                    # Если точек слишком много, прореживаем
+                    if len(cumulative_labels) > 50:
+                        step = len(cumulative_labels) // 50
+                        cumulative_labels = cumulative_labels[::step]
+                        cumulative_values = cumulative_values[::step]
+                        # Добавляем последнюю точку
+                        if cumulative_labels[-1] != sorted_changes[-1]['moment'].strftime('%d.%m %H:%M'):
+                            cumulative_labels.append(sorted_changes[-1]['moment'].strftime('%d.%m %H:%M'))
+                            cumulative_values.append(current_value)
+                else:
+                    # Если нет изменений, показываем просто текущее значение
+                    cumulative_labels = ['Текущее']
+                    cumulative_values = [current_value]
 
-                        # Создаем начальное значение
-                        initial_value = current_value - (total_changes * step_increment)
+                # 2. ГРАФИК ПО ДНЯМ (ВСЕ дни с изменениями)
+                daily_counts = {}
+                for change in changes:
+                    day_key = change['moment'].strftime('%d.%m.%Y')
+                    daily_counts[day_key] = daily_counts.get(day_key, 0) + 1
 
-                        # Для первого графика: создаем последовательные точки
-                        for i in range(min(total_changes, 30)):
-                            cumulative_labels.append(f'Точка {i+1}')
-                            cumulative_values.append(initial_value + (i * step_increment))
+                # Сортируем дни
+                if daily_counts:
+                    sorted_days = sorted(daily_counts.keys(), key=lambda x: datetime.strptime(x, '%d.%m.%Y'))
+                    for day in sorted_days:
+                        daily_labels.append(day)
+                        daily_values.append(daily_counts[day] * step_increment)
+                else:
+                    daily_labels = ['Нет данных']
+                    daily_values = [0]
 
-                        # Последняя точка - текущее значение
-                        if total_changes > 1:
-                            cumulative_labels[-1] = 'Текущее'
-                            cumulative_values[-1] = current_value
-                    else:
-                        # Если нет изменений, создаем две точки для демонстрации
-                        cumulative_labels = ['Начало', 'Текущее']
-                        cumulative_values = [current_value - step_increment, current_value]
+                # 3. ГРАФИК ПО МЕСЯЦАМ (ВСЕ месяцы с изменениями)
+                monthly_counts = {}
+                for change in changes:
+                    month_key = change['moment'].strftime('%Y-%m')
+                    monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
 
-                    # 2. ГРАФИК ПО ДНЯМ (последние 14 дней)
-                    daily_counts = {}
-                    for change in changes:
-                        if 'moment' in change and change['moment']:
-                            try:
-                                day_key = change['moment'].strftime('%d.%m')
-                                daily_counts[day_key] = daily_counts.get(day_key, 0) + 1
-                            except:
-                                pass
-
-                    # Берем последние 14 дней для графика
-                    if daily_counts:
-                        daily_items = list(daily_counts.items())[-14:] if daily_counts else []
-                        for day, count in daily_items:
-                            daily_labels.append(day)
-                            daily_values.append(count * step_increment)
-                    else:
-                        # Создаем тестовые данные, если нет реальных
-                        daily_labels = ['01.01', '02.01', '03.01', '04.01']
-                        daily_values = [step_increment * 2, step_increment * 3, step_increment * 1.5, step_increment * 2.5]
-
-                    # Всегда должно быть минимум 2 точки
-                    if len(daily_values) == 1:
-                        daily_labels.append('День 2')
-                        daily_values.append(daily_values[0] * 1.5)
-
-                    # 3. ГРАФИК ПО МЕСЯЦАМ (последние 12 месяцев)
-                    monthly_counts = {}
-                    for change in changes:
-                        if 'moment' in change and change['moment']:
-                            try:
-                                month_key = change['moment'].strftime('%Y-%m')
-                                monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
-                            except:
-                                pass
-
-                    # Берем все месяцы с изменениями
-                    if monthly_counts:
-                        monthly_items = []
-                        for month, count in monthly_counts.items():
-                            # Форматируем месяц
-                            try:
-                                date_obj = datetime.strptime(month, '%Y-%m')
-                                month_label = date_obj.strftime('%b %Y')
-                            except:
-                                month_label = month
-                            monthly_labels.append(month_label)
-                            monthly_values.append(count * step_increment)
-                    else:
-                        # Создаем тестовые данные
-                        monthly_labels = ['Янв', 'Фев', 'Мар', 'Апр']
-                        monthly_values = [step_increment * 5, step_increment * 8, step_increment * 3, step_increment * 6]
-
-                    # Всегда должно быть минимум 2 точки
-                    if len(monthly_values) == 1:
-                        monthly_labels.append('След.мес')
-                        monthly_values.append(monthly_values[0] * 1.2)
+                if monthly_counts:
+                    sorted_months = sorted(monthly_counts.keys())
+                    for month in sorted_months:
+                        # Преобразуем в название месяца
+                        try:
+                            date_obj = datetime.strptime(month, '%Y-%m')
+                            month_label = date_obj.strftime('%b %Y')
+                        except:
+                            month_label = month
+                        monthly_labels.append(month_label)
+                        monthly_values.append(monthly_counts[month] * step_increment)
+                else:
+                    monthly_labels = ['Нет данных']
+                    monthly_values = [0]
 
             except Exception as e:
-                logging.warning("No access to device_changes for device %s: %s", device_id, e)
-                # Если нет доступа, показываем пустые графики
+                logging.error(f"Ошибка при получении изменений для устройства {device_id}: {e}")
                 cumulative_labels = ['Нет данных']
                 cumulative_values = [current_value]
                 daily_labels = ['Нет данных']
@@ -748,8 +746,8 @@ def dashboard():
                 'id': device_id,
                 'type_id': device[1] if len(device) > 1 else None,
                 'pin': device[3] if len(device) > 3 else None,
-                'mac_address': device[2] if len(device) > 2 else None,  # Добавляем MAC адрес
-                'serial_number': device[4] if len(device) > 4 else 'Без номера',
+                'mac_address': device[2] if len(device) > 2 else None,
+                'serial_number': serial_number,
                 'scale_unit_id': device[5] if len(device) > 5 else None,
                 'step_increment': step_increment,
                 'indicator': current_value,
@@ -776,11 +774,11 @@ def dashboard():
             username=session['username'],
             devices=devices_data,
             current_time=datetime.now(),
-            is_admin=user_is_admin  # Передаем флаг администратора в шаблон
+            is_admin=user_is_admin
         )
 
     except SQLAlchemyError as ex:
-        logging.error("Database error in dashboard: %s", ex)
+        logging.error(f"Database error in dashboard: {ex}")
         return render_template('error.html', error="Ошибка получения данных")
     finally:
         if connect:

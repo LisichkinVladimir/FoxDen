@@ -848,8 +848,8 @@
                                 <canvas id="chart-cumulative-canvas-{{ device.id }}"></canvas>
                             </div>
                             <div class="chart-description">
-                                <i class="fas fa-info-circle"></i> Показывает накопленное значение счетчика с течением времени. 
-                                Каждая точка - момент изменения показаний.
+                                <i class="fas fa-info-circle"></i> Показывает накопленное значение счетчика с течением времени.
+                                Всего изменений: <strong>{{ device.total_changes }}</strong>
                             </div>
                         </div>
                         
@@ -859,8 +859,8 @@
                                 <canvas id="chart-daily-canvas-{{ device.id }}"></canvas>
                             </div>
                             <div class="chart-description">
-                                <i class="fas fa-info-circle"></i> Показывает изменение показаний по дням. 
-                                Высота столбца - прирост за день.
+                                <i class="fas fa-info-circle"></i> Показывает изменение показаний по дням.
+                                Всего дней с изменениями: <strong>{{ device.daily_labels|length }}</strong>
                             </div>
                         </div>
                         
@@ -870,8 +870,11 @@
                                 <canvas id="chart-monthly-canvas-{{ device.id }}"></canvas>
                             </div>
                             <div class="chart-description">
-                                <i class="fas fa-info-circle"></i> Показывает изменение показаний по месяцам. 
-                                Полезно для анализа сезонных тенденций.
+                                <i class="fas fa-info-circle"></i> Показывает изменение показаний по месяцам.
+                                {% if device.monthly_values %}
+                                    {% set total_volume = device.monthly_values|sum %}
+                                    Общий объем: <strong>{{ "%.3f"|format(total_volume) }} м³</strong>
+                                {% endif %}
                             </div>
                         </div>
                         
@@ -892,7 +895,8 @@
                                         "values": device.monthly_values
                                     },
                                     "step": device.step_increment,
-                                    "current": device.indicator
+                                    "current": device.indicator,
+                                    "total_changes": device.total_changes
                                 }|tojson
                             }}
                         </script>
@@ -902,7 +906,8 @@
                     <div class="chart-container">
                         <div class="no-chart-data">
                             <i class="fas fa-chart-line fa-2x"></i><br>
-                            Нет данных об изменениях для этого счетчика
+                            Нет данных об изменениях для этого счетчика<br>
+                            <small style="color: #7f8c8d;">Текущее значение: {{ "%.3f"|format(device.indicator) }}</small>
                         </div>
                     </div>
                     {% endif %}

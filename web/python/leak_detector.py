@@ -16,6 +16,14 @@ class LeakDetector:
             'high_consumption_multiplier': 3,  # В 3 раза выше нормы - утечка
         }
 
+    def _ensure_naive(self, dt):
+        """Преобразует datetime в naive (без timezone) для сравнения"""
+        if dt is None:
+            return datetime.now()
+        if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
+            return dt.replace(tzinfo=None)
+        return dt
+
     def analyze_device(self, device_changes: List[Dict], step_increment: float, 
                       current_value: float, serial_number: str) -> List[Dict]:
         """Анализирует данные устройства на наличие утечек"""
@@ -23,21 +31,30 @@ class LeakDetector:
         if not device_changes or len(device_changes) < 3:
             return []
 
+        # Преобразуем все временные метки в naive для корректного сравнения
+        processed_changes = []
+        for change in device_changes:
+            if 'moment' in change and change['moment']:
+                # Создаем копию и преобразуем время
+                change_copy = change.copy()
+                change_copy['moment'] = self._ensure_naive(change['moment'])
+                processed_changes.append(change_copy)
+
         alerts = []
 
         # 1. Проверка на слишком долгое непрерывное использование
-        long_usage = self._detect_long_continuous_usage(device_changes, step_increment)
+        long_usage = self._detect_long_continuous_usage(processed_changes, step_increment)
         if long_usage:
             alerts.append(long_usage)
 
         # 2. Проверка на ночные утечки
-        night_leak = self._detect_night_leaks(device_changes, step_increment)
+        night_leak = self._detect_night_leaks(processed_changes, step_increment)
         if night_leak:
             alerts.append(night_leak)
 
         # 3. Проверка на аномально высокую скорость потребления
-        if len(device_changes) > 10:
-            high_rate = self._detect_high_consumption_rate(device_changes, step_increment)
+        if len(processed_changes) > 10:
+            high_rate = self._detect_high_consumption_rate(processed_changes, step_increment)
             if high_rate:
                 alerts.append(high_rate)
 
@@ -51,6 +68,8 @@ class LeakDetector:
 
     def _detect_long_continuous_usage(self, changes: List[Dict], step_increment: float) -> Dict:
         """Обнаружение слишком долгого непрерывного использования"""
+        if not changes:
+            return None
 
         # Сортируем по времени
         sorted_changes = sorted(changes, key=lambda x: x['moment'])
@@ -60,6 +79,7 @@ class LeakDetector:
         suspicious_segments = []
 
         for i in range(1, len(sorted_changes)):
+            # Вычисляем разницу во времени
             time_diff = (sorted_changes[i]['moment'] - sorted_changes[i-1]['moment']).total_seconds()
 
             if time_diff <= self.config['min_interval_minutes'] * 60:
@@ -74,8 +94,8 @@ class LeakDetector:
                     duration = (sorted_changes[i-1]['moment'] - continuous_start).total_seconds() / 60
                     if duration > self.config['max_continuous_minutes']:
                         suspicious_segments.append({
-                            'start': continuous_start,
-                            'end': sorted_changes[i-1]['moment'],
+                            'start': continuous_start.strftime('%d.%m.%Y %H:%M'),
+                            'end': sorted_changes[i-1]['moment'].strftime('%d.%m.%Y %H:%M'),
                             'duration_minutes': round(duration, 1),
                             'volume': len(current_segment) * step_increment
                         })
@@ -87,8 +107,8 @@ class LeakDetector:
             duration = (sorted_changes[-1]['moment'] - continuous_start).total_seconds() / 60
             if duration > self.config['max_continuous_minutes']:
                 suspicious_segments.append({
-                    'start': continuous_start,
-                    'end': sorted_changes[-1]['moment'],
+                    'start': continuous_start.strftime('%d.%m.%Y %H:%M'),
+                    'end': sorted_changes[-1]['moment'].strftime('%d.%m.%Y %H:%M'),
                     'duration_minutes': round(duration, 1),
                     'volume': len(current_segment) * step_increment
                 })
@@ -103,8 +123,8 @@ class LeakDetector:
                 'message': f'Непрерывное использование воды {len(suspicious_segments)} раз(а)',
                 'details': {
                     'segments': suspicious_segments,
-                    'total_duration_minutes': total_duration,
-                    'total_volume': total_volume
+                    'total_duration_minutes': round(total_duration, 1),
+                    'total_volume': round(total_volume, 3)
                 },
                 'recommendation': 'Проверьте краны и сантехнику на протечки'
             }
@@ -113,9 +133,9 @@ class LeakDetector:
 
     def _detect_night_leaks(self, changes: List[Dict], step_increment: float) -> Dict:
         """Обнаружение утечек в ночное время"""
-
         night_changes = []
         for change in changes:
+            # Используем naive datetime для сравнения часов
             if self.config['night_hours'][0] <= change['moment'].hour < self.config['night_hours'][1]:
                 night_changes.append(change)
 
@@ -128,7 +148,7 @@ class LeakDetector:
                 'message': f'Подозрительная активность ночью: {len(night_changes)} изменений',
                 'details': {
                     'night_changes_count': len(night_changes),
-                    'night_volume': night_volume,
+                    'night_volume': round(night_volume, 3),
                     'period': f'{self.config["night_hours"][0]}:00-{self.config["night_hours"][1]}:00'
                 },
                 'recommendation': 'Проверьте туалетный бачок и скрытые протечки'
@@ -138,14 +158,10 @@ class LeakDetector:
 
     def _detect_high_consumption_rate(self, changes: List[Dict], step_increment: float) -> Dict:
         """Обнаружение аномально высокой скорости потребления"""
+        now = datetime.now()
+        two_hours_ago = now - timedelta(hours=2)
 
         # Анализируем последние 2 часа
-        dt_naive = datetime.now()
-        dt_naive_aware = dt_naive.replace(tzinfo=timezone.utc)
-        if len(changes) >0 and changes[0]['moment'].naive_dt.tzinfo is not None:
-            two_hours_ago = dt_naive_aware - timedelta(hours=2)
-        else:
-            two_hours_ago = dt_naive - timedelta(hours=2)
         recent_changes = [c for c in changes if c['moment'] >= two_hours_ago]
 
         if len(recent_changes) < 5:
@@ -160,7 +176,7 @@ class LeakDetector:
         current_rate = (len(recent_changes) * step_increment) / time_span
 
         # Сравниваем с исторической нормой (последние 7 дней)
-        week_ago = datetime.now() - timedelta(days=7)
+        week_ago = now - timedelta(days=7)
         historical_changes = [c for c in changes if c['moment'] >= week_ago]
 
         if len(historical_changes) < 20:
@@ -183,9 +199,9 @@ class LeakDetector:
                 'severity': 'critical' if ratio > 5 else 'high',
                 'message': f'Скорость потребления {current_rate:.2f} м³/ч (в {ratio:.1f} раз выше нормы)',
                 'details': {
-                    'current_rate': current_rate,
-                    'historical_rate': historical_rate,
-                    'ratio': ratio
+                    'current_rate': round(current_rate, 2),
+                    'historical_rate': round(historical_rate, 2),
+                    'ratio': round(ratio, 1)
                 },
                 'recommendation': 'Возможна прорывная утечка, проверьте систему немедленно!'
             }
